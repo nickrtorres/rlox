@@ -1,5 +1,8 @@
+use lazy_static::lazy_static;
+use std::collections::HashMap;
 use std::string::ToString;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 enum TokenType {
     /// Single-character tokens
     LeftParen,
@@ -50,6 +53,7 @@ enum TokenType {
     Eof,
 }
 
+#[derive(Debug, PartialEq)]
 struct Token {
     token_type: TokenType,
     lexeme: String,
@@ -103,7 +107,7 @@ impl Scanner {
         }
     }
 
-    fn scan_tokens<'a>(&'a mut self) -> &'a Vec<Token> {
+    pub fn scan_tokens<'a>(&'a mut self) -> &'a Vec<Token> {
         while !self.is_at_end() {
             self.start = self.current;
             self.scan_token();
@@ -111,6 +115,7 @@ impl Scanner {
 
         self.tokens
             .push(Token::new(TokenType::Eof, String::new(), None, self.line));
+
         &self.tokens
     }
 
@@ -119,7 +124,8 @@ impl Scanner {
     }
 
     fn scan_token(&mut self) {
-        match self.advance() {
+        let c = self.advance().unwrap();
+        match c {
             '(' => self.add_token(TokenType::LeftParen, None),
             ')' => self.add_token(TokenType::RightParen, None),
             '{' => self.add_token(TokenType::LeftBrace, None),
@@ -182,75 +188,161 @@ impl Scanner {
             ' ' | '\r' | '\t' => {}
             '\n' => self.line += 1,
             '"' => self.string(),
-            _ => eprintln!("{}: unexpected token", self.line),
+            c => {
+                if Scanner::is_digit(Some(c)) {
+                    self.number();
+                } else if c.is_alphabetic() {
+                    self.identifier();
+                } else {
+                    eprintln!("{}: unexpected token", self.line);
+                }
+            }
         };
     }
 
-    fn peek(&self) -> Option<char> {
-        // ehhhh
-        self.source.chars().peekable().peek().map(|s| *s)
+    fn is_keyword(s: &str) -> Option<&TokenType> {
+        lazy_static! {
+            static ref KEYWORDS: HashMap<&'static str, TokenType> = [
+                ("and", TokenType::And),
+                ("class", TokenType::Class),
+                ("else", TokenType::Else),
+                ("false", TokenType::False),
+                ("for", TokenType::For),
+                ("fun", TokenType::Fun),
+                ("if", TokenType::If),
+                ("nil", TokenType::Nil),
+                ("or", TokenType::Or),
+                ("print", TokenType::Print),
+                ("return", TokenType::Return),
+                ("super", TokenType::Super),
+                ("this", TokenType::This),
+                ("true", TokenType::True),
+                ("var", TokenType::Var),
+                ("while", TokenType::While)
+            ]
+            .iter()
+            .cloned()
+            .collect();
+        }
+
+        KEYWORDS.get(s)
     }
 
-    fn string(&mut self) {
-        while let Some(s) = self.peek() {
-            if s == '"' {
-                break;
-            }
-            if self.is_at_end() {
-                break;
-            }
-
-            if let Some('\n') = self.peek() {
-                self.line += 1;
-            }
-
+    fn identifier(&mut self) {
+        while Scanner::is_alphanumeric(self.peek()) {
             self.advance();
         }
 
-        self.advance();
-        let value = self.source[self.start..self.current].to_string();
-        self.add_token(TokenType::String, Some(value))
+        self.add_token(TokenType::Identifier, None);
     }
 
-    fn advance(&mut self) -> char {
+    /// Adapter for Option<char>
+    fn is_alphanumeric(c: Option<char>) -> bool {
+        c.map_or(false, |c| c.is_ascii_alphanumeric())
+    }
+
+    /// Adapter for Option<char>
+    fn is_digit(c: Option<char>) -> bool {
+        c.map_or(false, |c| c.is_ascii_digit())
+    }
+
+    fn number(&mut self) {
+        // stub
+    }
+
+    fn peek(&self) -> Option<char> {
+        self.source.chars().nth(self.current)
+    }
+
+    fn peek_next(&self) -> Option<char> {
+        self.source.chars().nth(self.current + 1)
+    }
+
+    fn string(&mut self) {
+        // stub
+    }
+
+    fn advance(&mut self) -> Option<char> {
+        let c = self.source.chars().nth(self.current);
         self.current += 1;
-        self.source.chars().next().unwrap()
+        c
     }
 
     fn look_ahead_for(&self, expected: char) -> bool {
-        if self.is_at_end() {
-            return false;
-        }
-
-        if self
-            .source
-            .chars()
-            .peekable()
-            .peek()
-            .map(|s| *s == expected)
-            .is_some()
-        {
-            self.source.chars().next();
-            true
-        } else {
-            false
-        }
+        // stub
+        true
     }
 
-    fn add_token(&mut self, token: TokenType, literal: Option<String>) {
-        assert!(self.start < self.source.len());
-        assert!(self.current < self.source.len());
-        // Assumes we live in a world where a character == a byte
-        let text = self.source[self.start..self.current].to_string();
-        self.tokens
-            .push(Token::new(token, text, literal, self.line));
+    fn add_token(&mut self, mut token: TokenType, literal: Option<String>) {
+        let value = self.source[self.start..self.current].to_string();
+
+        // Identifiers lead to a case where there might be a better (i.e. more accurate)
+        // token type than the one passed in. This logic should arguably be in `identifier`.
+        let token = Scanner::is_keyword(&value).map_or(token, |t| *t);
+        self.tokens.push(Token::new(token, value, None, self.line));
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+    fn it_can_advance_through_stream() {
+        let mut scanner = Scanner::new(String::from("true;"));
+        assert_eq!(Some('t'), scanner.advance());
+        assert_eq!(Some('r'), scanner.advance());
+        assert_eq!(Some('u'), scanner.advance());
+        assert_eq!(Some('e'), scanner.advance());
+        assert_eq!(Some(';'), scanner.advance());
+        assert_eq!(None, scanner.advance());
+        assert_eq!(None, scanner.advance());
+    }
+
+    #[test]
+    fn it_can_peek_without_advancing() {
+        let mut scanner = Scanner::new(String::from("true;"));
+        assert_eq!(Some('t'), scanner.advance());
+        assert_eq!(Some('r'), scanner.peek());
+        assert_eq!(Some('r'), scanner.advance());
+        assert_eq!(Some('u'), scanner.peek());
+        assert_eq!(Some('u'), scanner.advance());
+        assert_eq!(Some('e'), scanner.peek());
+        assert_eq!(Some('e'), scanner.advance());
+        assert_eq!(Some(';'), scanner.peek());
+        assert_eq!(Some(';'), scanner.advance());
+        assert_eq!(None, scanner.peek());
+        assert_eq!(None, scanner.advance());
+    }
+
+    #[test]
+    fn it_can_peek_ahead_without_advancing() {
+        let mut scanner = Scanner::new(String::from("true;"));
+        assert_eq!(Some('t'), scanner.advance());
+        assert_eq!(Some('u'), scanner.peek_next());
+        assert_eq!(Some('r'), scanner.advance());
+        assert_eq!(Some('e'), scanner.peek_next());
+        assert_eq!(Some('u'), scanner.advance());
+        assert_eq!(Some(';'), scanner.peek_next());
+        assert_eq!(Some('e'), scanner.advance());
+        assert_eq!(None, scanner.peek_next());
+        assert_eq!(Some(';'), scanner.advance());
+        assert_eq!(None, scanner.peek_next());
+        assert_eq!(None, scanner.advance());
+    }
+
+    // TODO: This test reaches into the guts of Scanner a bit more than I'd like.
+    #[test]
+    fn it_can_scan_a_boolean_token() {
+        let mut scanner = Scanner::new(String::from("true"));
+        scanner.scan_token();
+        assert_eq!(1, scanner.tokens.len());
+        let t = scanner.tokens.first();
+        let expected = Token::new(TokenType::True, String::from("true"), None, 1);
+        assert_eq!(t, Some(&expected));
+    }
+
+    #[test]
+    fn it_can_scan_a_boolean_token_with_a_terminator() {
+        // TODO
     }
 }
