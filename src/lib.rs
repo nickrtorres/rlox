@@ -385,11 +385,18 @@ mod tests {
         assert_eq!(t, Some(&expected));
     }
 
+    #[test]
+    fn it_increments_linecount() {
+        let mut scanner = Scanner::new(String::from("\n"));
+        let line = scanner.line;
+        scanner.scan_token();
+        assert_eq!(line + 1, scanner.line);
+    }
+
     // Induction: assumes it works for all don't cares
     #[test]
-    fn it_ignores_newlines() {
-        let mut scanner = Scanner::new(String::from("\n"));
-        scanner.scan_token();
+    fn it_ignores_dont_care_tokens() {
+        let mut scanner = Scanner::new(String::from("\t"));
         assert_eq!(0, scanner.tokens.len());
     }
 }
