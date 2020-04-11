@@ -1,5 +1,4 @@
-#! [warn(clippy::pedantic)]
-
+#![warn(clippy::pedantic)]
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::string::ToString;
