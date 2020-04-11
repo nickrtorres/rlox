@@ -130,6 +130,7 @@ impl Scanner {
         };
 
         match c {
+            ' ' | '\r' | '\t' => {}
             '(' => self.add_token(TokenType::LeftParen, None),
             ')' => self.add_token(TokenType::RightParen, None),
             '{' => self.add_token(TokenType::LeftBrace, None),
@@ -184,7 +185,6 @@ impl Scanner {
                     self.add_token(TokenType::Slash, None);
                 }
             }
-            ' ' | '\r' | '\t' => {}
             '\n' => self.line += 1,
             '"' => self.string(),
             c => {
