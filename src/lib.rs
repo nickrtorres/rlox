@@ -340,8 +340,25 @@ mod tests {
         let mut scanner = Scanner::new(String::from("true"));
         scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
+    }
+
+    #[test]
+    fn it_can_scan_a_reserved_word() {
+        let mut scanner = Scanner::new(String::from("return"));
+        scanner.scan_token();
+        assert_eq!(1, scanner.tokens.len());
         let t = scanner.tokens.first();
-        let expected = Token::new(TokenType::True, String::from("true"), None, 1);
+        let expected = Token::new(TokenType::Return, String::from("return"), None, 1);
+        assert_eq!(t, Some(&expected));
+    }
+
+    #[test]
+    fn it_can_scan_a_non_reserved_word() {
+        let mut scanner = Scanner::new(String::from("foobar"));
+        scanner.scan_token();
+        assert_eq!(1, scanner.tokens.len());
+        let t = scanner.tokens.first();
+        let expected = Token::new(TokenType::Identifier, String::from("foobar"), None, 1);
         assert_eq!(t, Some(&expected));
     }
 
