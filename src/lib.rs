@@ -362,6 +362,18 @@ mod tests {
         assert_eq!(t, Some(&expected));
     }
 
+    // Induction: assumes all single character tokens work the same
+    #[test]
+    fn it_can_scan_a_single_character_token() {
+        let mut scanner = Scanner::new(String::from("("));
+        scanner.scan_token();
+        assert_eq!(1, scanner.tokens.len());
+
+        let t = scanner.tokens.first();
+        let expected = Token::new(TokenType::LeftParen, String::from("("), None, 1);
+        assert_eq!(t, Some(&expected));
+    }
+
     #[test]
     fn it_can_scan_a_boolean_token_with_a_terminator() {
         // TODO
