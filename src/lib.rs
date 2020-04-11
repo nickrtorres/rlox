@@ -182,6 +182,7 @@ impl Scanner {
         };
     }
 
+    // this probably slow since it clones, but it looks a lot nicer!
     fn is_keyword(s: &str) -> Option<&TokenType> {
         lazy_static! {
             static ref KEYWORDS: HashMap<&'static str, TokenType> = [
