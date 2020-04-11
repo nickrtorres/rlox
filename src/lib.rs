@@ -141,49 +141,44 @@ impl Scanner {
             ';' => self.add_token(TokenType::Semicolon, None),
             '*' => self.add_token(TokenType::Star, None),
             '!' => {
-                let token = if self.look_ahead_for('=') {
-                    TokenType::BangEqual
+                if let Some('=') = self.peek() {
+                    self.advance();
+                    self.add_token(TokenType::BangEqual, None);
                 } else {
-                    TokenType::Bang
+                    self.add_token(TokenType::Bang, None);
                 };
-
-                self.add_token(token, None)
             }
             '=' => {
-                let token = if self.look_ahead_for('=') {
-                    TokenType::EqualEqual
+                if let Some('=') = self.peek() {
+                    self.advance();
+                    self.add_token(TokenType::EqualEqual, None);
                 } else {
-                    TokenType::Equal
+                    self.add_token(TokenType::Equal, None);
                 };
-
-                self.add_token(token, None)
             }
             '<' => {
-                let token = if self.look_ahead_for('=') {
-                    TokenType::LessEqual
+                if let Some('=') = self.peek() {
+                    self.advance();
+                    self.add_token(TokenType::LessEqual, None);
                 } else {
-                    TokenType::Less
+                    self.add_token(TokenType::Less, None);
                 };
-
-                self.add_token(token, None)
             }
             '>' => {
-                let token = if self.look_ahead_for('=') {
-                    TokenType::GreaterEqual
+                if let Some('=') = self.peek() {
+                    self.advance();
+                    self.add_token(TokenType::GreaterEqual, None);
                 } else {
-                    TokenType::Greater
+                    self.add_token(TokenType::Greater, None);
                 };
-
-                self.add_token(token, None)
             }
             '/' => {
-                if self.look_ahead_for('/') {
-                    while let Some(s) = self.peek() {
-                        if s == '\n' {
-                            break;
+                if let Some('/') = self.peek() {
+                    loop {
+                        match self.advance() {
+                            None | Some('\n') => break,
+                            Some(_) => {}
                         }
-
-                        self.source.chars().next();
                     }
                 } else {
                     self.add_token(TokenType::Slash, None);
@@ -342,11 +337,13 @@ mod tests {
         assert_eq!(1, scanner.tokens.len());
     }
 
+    // Induction: assumes all reserved words work the same
     #[test]
     fn it_can_scan_a_reserved_word() {
         let mut scanner = Scanner::new(String::from("return"));
         scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
+
         let t = scanner.tokens.first();
         let expected = Token::new(TokenType::Return, String::from("return"), None, 1);
         assert_eq!(t, Some(&expected));
@@ -357,6 +354,7 @@ mod tests {
         let mut scanner = Scanner::new(String::from("foobar"));
         scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
+
         let t = scanner.tokens.first();
         let expected = Token::new(TokenType::Identifier, String::from("foobar"), None, 1);
         assert_eq!(t, Some(&expected));
@@ -371,6 +369,36 @@ mod tests {
 
         let t = scanner.tokens.first();
         let expected = Token::new(TokenType::LeftParen, String::from("("), None, 1);
+        assert_eq!(t, Some(&expected));
+    }
+
+    // Induction: assumes all dual character tokens work the same
+    #[test]
+    fn it_can_scan_a_dual_character_token() {
+        let mut scanner = Scanner::new(String::from("!="));
+        scanner.scan_token();
+        assert_eq!(1, scanner.tokens.len());
+
+        let t = scanner.tokens.first();
+        let expected = Token::new(TokenType::BangEqual, String::from("!="), None, 1);
+        assert_eq!(t, Some(&expected));
+    }
+
+    #[test]
+    fn it_ignores_comments() {
+        let mut scanner = Scanner::new(String::from("//"));
+        scanner.scan_token();
+        assert_eq!(0, scanner.tokens.len());
+    }
+
+    #[test]
+    fn it_scans_literal_slashes() {
+        let mut scanner = Scanner::new(String::from("/"));
+        scanner.scan_token();
+        assert_eq!(1, scanner.tokens.len());
+
+        let t = scanner.tokens.first();
+        let expected = Token::new(TokenType::Slash, String::from("/"), None, 1);
         assert_eq!(t, Some(&expected));
     }
 
