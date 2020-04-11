@@ -404,6 +404,7 @@ mod tests {
     #[test]
     fn it_ignores_dont_care_tokens() {
         let mut scanner = Scanner::new(String::from("\t"));
+        scanner.scan_token();
         assert_eq!(0, scanner.tokens.len());
     }
 
