@@ -240,6 +240,7 @@ impl Scanner {
         }
 
         let value = self.source[self.start..self.current].to_string();
+        // TODO: danger!
         let token = TokenType::Number(value.parse::<f64>().unwrap());
         self.add_token(token);
     }
