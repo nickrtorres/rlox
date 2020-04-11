@@ -141,38 +141,10 @@ impl Scanner {
             '+' => self.add_token(TokenType::Plus, None),
             ';' => self.add_token(TokenType::Semicolon, None),
             '*' => self.add_token(TokenType::Star, None),
-            '!' => {
-                if let Some('=') = self.peek() {
-                    self.advance();
-                    self.add_token(TokenType::BangEqual, None);
-                } else {
-                    self.add_token(TokenType::Bang, None);
-                };
-            }
-            '=' => {
-                if let Some('=') = self.peek() {
-                    self.advance();
-                    self.add_token(TokenType::EqualEqual, None);
-                } else {
-                    self.add_token(TokenType::Equal, None);
-                };
-            }
-            '<' => {
-                if let Some('=') = self.peek() {
-                    self.advance();
-                    self.add_token(TokenType::LessEqual, None);
-                } else {
-                    self.add_token(TokenType::Less, None);
-                };
-            }
-            '>' => {
-                if let Some('=') = self.peek() {
-                    self.advance();
-                    self.add_token(TokenType::GreaterEqual, None);
-                } else {
-                    self.add_token(TokenType::Greater, None);
-                };
-            }
+            '!' => self.is_compound_equal_operator(TokenType::BangEqual, TokenType::Bang),
+            '=' => self.is_compound_equal_operator(TokenType::EqualEqual, TokenType::Equal),
+            '<' => self.is_compound_equal_operator(TokenType::LessEqual, TokenType::Less),
+            '>' => self.is_compound_equal_operator(TokenType::GreaterEqual, TokenType::Greater),
             '/' => {
                 if let Some('/') = self.peek() {
                     loop {
@@ -196,6 +168,17 @@ impl Scanner {
                     eprintln!("{}: unexpected token", self.line);
                 }
             }
+        };
+    }
+
+    // this method has weird semantics. it feels like the right abstraction but maybe it can use
+    // some work
+    fn is_compound_equal_operator(&mut self, yes: TokenType, no: TokenType) {
+        if let Some('=') = self.peek() {
+            self.advance();
+            self.add_token(yes, None);
+        } else {
+            self.add_token(no, None);
         };
     }
 
