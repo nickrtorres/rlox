@@ -1,6 +1,7 @@
 #![warn(clippy::pedantic)]
 #![feature(str_strip)]
 use lazy_static::lazy_static;
+use std::clone::Clone;
 use std::collections::HashMap;
 use std::iter::Peekable;
 use std::str::Chars;
@@ -282,7 +283,7 @@ impl<'a> Scanner<'a> {
 
         // Identifiers lead to a case where there might be a better (i.e. more accurate)
         // token type than the one passed in. This logic should arguably be in `identifier`.
-        let token = Scanner::is_keyword(&value).map_or(token, std::clone::Clone::clone);
+        let token = Scanner::is_keyword(&value).map_or(token, Clone::clone);
         self.tokens.push(Token::new(token, value, self.line));
     }
 }
