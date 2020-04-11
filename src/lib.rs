@@ -232,8 +232,8 @@ impl<'a> Scanner<'a> {
         }
 
         if let Some('.') = self.peek() {
-            // TODO peek_next is a pain to implement since Chars only affords
-            // `peekable().peek()`. For now don't do it
+            // TODO peek_next is a pain to implement since `Peekable` can only
+            // step forward once. Just assume valid input for now. :(
             self.advance();
 
             while Scanner::is_digit(self.peek()) {
