@@ -402,8 +402,11 @@ mod tests {
         assert_eq!(t, Some(&expected));
     }
 
+    // Induction: assumes it works for all don't cares
     #[test]
-    fn it_can_scan_a_boolean_token_with_a_terminator() {
-        // TODO
+    fn it_ignores_newlines() {
+        let mut scanner = Scanner::new(String::from("\n"));
+        scanner.scan_token();
+        assert_eq!(0, scanner.tokens.len());
     }
 }
