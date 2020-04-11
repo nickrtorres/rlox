@@ -91,6 +91,8 @@ impl ToString for Token {
 
 struct Scanner {
     source: String,
+    // Consider making tokens, start and current Cell's to avoid
+    // having to hold a mut Scanner
     tokens: Vec<Token>,
     start: usize,
     current: usize,
