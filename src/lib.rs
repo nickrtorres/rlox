@@ -233,7 +233,21 @@ impl Scanner {
     }
 
     fn number(&mut self) {
-        // stub
+        while Scanner::is_digit(self.peek()) {
+            self.advance();
+        }
+
+        if let Some('.') = self.peek() {
+            self.advance();
+
+            while Scanner::is_digit(self.peek()) {
+                self.advance();
+            }
+        };
+
+        // TODO: this is a bit dodgy
+        let value = self.source[self.start..self.current].to_string();
+        self.add_token(TokenType::String, Some(value));
     }
 
     fn peek(&self) -> Option<char> {
@@ -421,6 +435,38 @@ mod tests {
             TokenType::String,
             String::from("\"foo\""),
             Some(String::from("foo")),
+            1,
+        );
+        assert_eq!(t, Some(&expected));
+    }
+
+    #[test]
+    fn it_can_scan_integers() {
+        let mut scanner = Scanner::new(String::from("42"));
+        scanner.scan_token();
+        assert_eq!(1, scanner.tokens.len());
+
+        let t = scanner.tokens.first();
+        let expected = Token::new(
+            TokenType::String,
+            String::from("42"),
+            Some(String::from("42")),
+            1,
+        );
+        assert_eq!(t, Some(&expected));
+    }
+
+    #[test]
+    fn it_can_scan_floating_point_numbers() {
+        let mut scanner = Scanner::new(String::from("3.14"));
+        scanner.scan_token();
+        assert_eq!(1, scanner.tokens.len());
+
+        let t = scanner.tokens.first();
+        let expected = Token::new(
+            TokenType::String,
+            String::from("3.14"),
+            Some(String::from("3.14")),
             1,
         );
         assert_eq!(t, Some(&expected));
