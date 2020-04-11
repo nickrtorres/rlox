@@ -6,7 +6,7 @@ use std::string::ToString;
 #[macro_use]
 extern crate if_chain;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 enum TokenType {
     /// Single-character tokens
     LeftParen,
@@ -33,8 +33,8 @@ enum TokenType {
 
     // Literals
     Identifier,
-    String,
-    Number,
+    String(String),
+    Number(f64),
 
     // Keywords
     And,
@@ -61,21 +61,14 @@ enum TokenType {
 struct Token {
     token_type: TokenType,
     lexeme: String,
-    literal: Option<String>,
     line: usize,
 }
 
 impl Token {
-    pub fn new(
-        token_type: TokenType,
-        lexeme: String,
-        literal: Option<String>,
-        line: usize,
-    ) -> Self {
+    pub fn new(token_type: TokenType, lexeme: String, line: usize) -> Self {
         Token {
             token_type,
             lexeme,
-            literal,
             line,
         }
     }
@@ -83,12 +76,7 @@ impl Token {
 
 impl ToString for Token {
     fn to_string(&self) -> String {
-        format!(
-            "{} {} {}",
-            stringify!(self.token_type),
-            self.lexeme,
-            self.literal.as_ref().unwrap_or(&String::new())
-        )
+        format!("{} {} ", stringify!(self.token_type), self.lexeme,)
     }
 }
 
@@ -120,7 +108,7 @@ impl Scanner {
         }
 
         self.tokens
-            .push(Token::new(TokenType::Eof, String::new(), None, self.line));
+            .push(Token::new(TokenType::Eof, String::new(), self.line));
 
         &self.tokens
     }
@@ -137,16 +125,16 @@ impl Scanner {
 
         match c {
             ' ' | '\r' | '\t' => {}
-            '(' => self.add_token(TokenType::LeftParen, None),
-            ')' => self.add_token(TokenType::RightParen, None),
-            '{' => self.add_token(TokenType::LeftBrace, None),
-            '}' => self.add_token(TokenType::RightBrace, None),
-            ',' => self.add_token(TokenType::Comma, None),
-            '.' => self.add_token(TokenType::Dot, None),
-            '-' => self.add_token(TokenType::Minus, None),
-            '+' => self.add_token(TokenType::Plus, None),
-            ';' => self.add_token(TokenType::Semicolon, None),
-            '*' => self.add_token(TokenType::Star, None),
+            '(' => self.add_token(TokenType::LeftParen),
+            ')' => self.add_token(TokenType::RightParen),
+            '{' => self.add_token(TokenType::LeftBrace),
+            '}' => self.add_token(TokenType::RightBrace),
+            ',' => self.add_token(TokenType::Comma),
+            '.' => self.add_token(TokenType::Dot),
+            '-' => self.add_token(TokenType::Minus),
+            '+' => self.add_token(TokenType::Plus),
+            ';' => self.add_token(TokenType::Semicolon),
+            '*' => self.add_token(TokenType::Star),
             '!' => self.is_compound_equal_operator(TokenType::BangEqual, TokenType::Bang),
             '=' => self.is_compound_equal_operator(TokenType::EqualEqual, TokenType::Equal),
             '<' => self.is_compound_equal_operator(TokenType::LessEqual, TokenType::Less),
@@ -160,7 +148,7 @@ impl Scanner {
                         }
                     }
                 } else {
-                    self.add_token(TokenType::Slash, None);
+                    self.add_token(TokenType::Slash);
                 }
             }
             '\n' => self.line += 1,
@@ -182,9 +170,9 @@ impl Scanner {
     fn is_compound_equal_operator(&mut self, yes: TokenType, no: TokenType) {
         if let Some('=') = self.peek() {
             self.advance();
-            self.add_token(yes, None);
+            self.add_token(yes);
         } else {
-            self.add_token(no, None);
+            self.add_token(no);
         };
     }
 
@@ -222,7 +210,7 @@ impl Scanner {
             self.advance();
         }
 
-        self.add_token(TokenType::Identifier, None);
+        self.add_token(TokenType::Identifier);
     }
 
     /// Adapter for Option<char>
@@ -251,9 +239,9 @@ impl Scanner {
             }
         }
 
-        // TODO: this is a bit dodgy
         let value = self.source[self.start..self.current].to_string();
-        self.add_token(TokenType::String, Some(value));
+        let token = TokenType::Number(value.parse::<f64>().unwrap());
+        self.add_token(token);
     }
 
     fn peek(&self) -> Option<char> {
@@ -274,7 +262,7 @@ impl Scanner {
         // TODO: this is a bit dodgy
         assert!(self.start + 1 < self.source.len());
         let value = self.source[self.start + 1..self.current - 1].to_string();
-        self.add_token(TokenType::String, Some(value));
+        self.add_token(TokenType::String(value));
     }
 
     fn advance(&mut self) -> Option<char> {
@@ -283,14 +271,13 @@ impl Scanner {
         c
     }
 
-    fn add_token(&mut self, mut token: TokenType, literal: Option<String>) {
+    fn add_token(&mut self, mut token: TokenType) {
         let value = self.source[self.start..self.current].to_string();
 
         // Identifiers lead to a case where there might be a better (i.e. more accurate)
         // token type than the one passed in. This logic should arguably be in `identifier`.
-        let token = Scanner::is_keyword(&value).map_or(token, |t| *t);
-        self.tokens
-            .push(Token::new(token, value, literal, self.line));
+        let token = Scanner::is_keyword(&value).map_or(token, |t| t.clone());
+        self.tokens.push(Token::new(token, value, self.line));
     }
 }
 
@@ -357,7 +344,7 @@ mod tests {
         assert_eq!(1, scanner.tokens.len());
 
         let t = scanner.tokens.first();
-        let expected = Token::new(TokenType::Return, String::from("return"), None, 1);
+        let expected = Token::new(TokenType::Return, String::from("return"), 1);
         assert_eq!(t, Some(&expected));
     }
 
@@ -368,7 +355,7 @@ mod tests {
         assert_eq!(1, scanner.tokens.len());
 
         let t = scanner.tokens.first();
-        let expected = Token::new(TokenType::Identifier, String::from("foobar"), None, 1);
+        let expected = Token::new(TokenType::Identifier, String::from("foobar"), 1);
         assert_eq!(t, Some(&expected));
     }
 
@@ -380,7 +367,7 @@ mod tests {
         assert_eq!(1, scanner.tokens.len());
 
         let t = scanner.tokens.first();
-        let expected = Token::new(TokenType::LeftParen, String::from("("), None, 1);
+        let expected = Token::new(TokenType::LeftParen, String::from("("), 1);
         assert_eq!(t, Some(&expected));
     }
 
@@ -392,7 +379,7 @@ mod tests {
         assert_eq!(1, scanner.tokens.len());
 
         let t = scanner.tokens.first();
-        let expected = Token::new(TokenType::BangEqual, String::from("!="), None, 1);
+        let expected = Token::new(TokenType::BangEqual, String::from("!="), 1);
         assert_eq!(t, Some(&expected));
     }
 
@@ -410,7 +397,7 @@ mod tests {
         assert_eq!(1, scanner.tokens.len());
 
         let t = scanner.tokens.first();
-        let expected = Token::new(TokenType::Slash, String::from("/"), None, 1);
+        let expected = Token::new(TokenType::Slash, String::from("/"), 1);
         assert_eq!(t, Some(&expected));
     }
 
@@ -438,9 +425,8 @@ mod tests {
 
         let t = scanner.tokens.first();
         let expected = Token::new(
-            TokenType::String,
+            TokenType::String(String::from("foo")),
             String::from("\"foo\""),
-            Some(String::from("foo")),
             1,
         );
         assert_eq!(t, Some(&expected));
@@ -453,12 +439,7 @@ mod tests {
         assert_eq!(1, scanner.tokens.len());
 
         let t = scanner.tokens.first();
-        let expected = Token::new(
-            TokenType::String,
-            String::from("42"),
-            Some(String::from("42")),
-            1,
-        );
+        let expected = Token::new(TokenType::Number(42 as f64), String::from("42"), 1);
         assert_eq!(t, Some(&expected));
     }
 
@@ -469,12 +450,7 @@ mod tests {
         assert_eq!(1, scanner.tokens.len());
 
         let t = scanner.tokens.first();
-        let expected = Token::new(
-            TokenType::String,
-            String::from("3.14"),
-            Some(String::from("3.14")),
-            1,
-        );
+        let expected = Token::new(TokenType::Number(3.14), String::from("3.14"), 1);
         assert_eq!(t, Some(&expected));
     }
 }
