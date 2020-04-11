@@ -244,7 +244,16 @@ impl Scanner {
     }
 
     fn string(&mut self) {
-        // stub
+        while let Some(s) = self.advance() {
+            if s == '"' {
+                break;
+            }
+        }
+
+        // TODO: this is a bit dodgy
+        assert!(self.start + 1 < self.source.len());
+        let value = self.source[self.start + 1..self.current - 1].to_string();
+        self.add_token(TokenType::String, Some(value));
     }
 
     fn advance(&mut self) -> Option<char> {
@@ -259,7 +268,8 @@ impl Scanner {
         // Identifiers lead to a case where there might be a better (i.e. more accurate)
         // token type than the one passed in. This logic should arguably be in `identifier`.
         let token = Scanner::is_keyword(&value).map_or(token, |t| *t);
-        self.tokens.push(Token::new(token, value, None, self.line));
+        self.tokens
+            .push(Token::new(token, value, literal, self.line));
     }
 }
 
@@ -396,5 +406,21 @@ mod tests {
     fn it_ignores_dont_care_tokens() {
         let mut scanner = Scanner::new(String::from("\t"));
         assert_eq!(0, scanner.tokens.len());
+    }
+
+    #[test]
+    fn it_can_scan_string_literals() {
+        let mut scanner = Scanner::new(String::from("\"foo\""));
+        scanner.scan_token();
+        assert_eq!(1, scanner.tokens.len());
+
+        let t = scanner.tokens.first();
+        let expected = Token::new(
+            TokenType::String,
+            String::from("\"foo\""),
+            Some(String::from("foo")),
+            1,
+        );
+        assert_eq!(t, Some(&expected));
     }
 }
