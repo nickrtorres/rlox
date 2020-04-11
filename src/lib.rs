@@ -1,6 +1,8 @@
 #![warn(clippy::pedantic)]
+#![feature(str_strip)]
 use lazy_static::lazy_static;
 use std::collections::HashMap;
+use std::str::Chars;
 use std::string::ToString;
 
 #[macro_use]
@@ -80,8 +82,10 @@ impl ToString for Token {
     }
 }
 
-struct Scanner {
+struct Scanner<'a> {
     source: String,
+    scratch: String,
+    chars: Chars<'a>,
     // Consider making tokens, start and current Cell's to avoid
     // having to hold a mut Scanner
     tokens: Vec<Token>,
@@ -90,10 +94,13 @@ struct Scanner {
     line: usize,
 }
 
-impl Scanner {
-    fn new(source: String) -> Self {
+impl<'a> Scanner<'a> {
+    fn new(source: &'a str) -> Self {
         Scanner {
-            source,
+            // SLOW!
+            source: String::from(source),
+            scratch: String::with_capacity(1024),
+            chars: source.chars(),
             tokens: Vec::new(),
             start: 0,
             current: 0,
@@ -101,7 +108,7 @@ impl Scanner {
         }
     }
 
-    pub fn scan_tokens<'a>(&'a mut self) -> &'a Vec<Token> {
+    pub fn scan_tokens<'s>(&'s mut self) -> &'s Vec<Token> {
         while !self.is_at_end() {
             self.start = self.current;
             self.scan_token();
@@ -239,7 +246,7 @@ impl Scanner {
             }
         }
 
-        let value = self.source[self.start..self.current].to_string();
+        let value = String::from(&self.scratch);
         // TODO: danger!
         let token = TokenType::Number(value.parse::<f64>().unwrap());
         self.add_token(token);
@@ -260,20 +267,28 @@ impl Scanner {
             }
         }
 
-        // TODO: this is a bit dodgy
-        assert!(self.start + 1 < self.source.len());
-        let value = self.source[self.start + 1..self.current - 1].to_string();
+        // panic: unwrapping should be safe as someone earlier
+        // should catch an unterminated "
+        debug_assert!(self.scratch.starts_with("\""));
+        debug_assert!(self.scratch.ends_with("\""));
+        let value = self
+            .scratch
+            .strip_suffix("\"")
+            .and_then(|s| s.strip_prefix("\""))
+            .unwrap()
+            .to_string();
         self.add_token(TokenType::String(value));
     }
 
     fn advance(&mut self) -> Option<char> {
-        let c = self.source.chars().nth(self.current);
+        let c = self.chars.next();
+        c.map(|c| self.scratch.push(c));
         self.current += 1;
         c
     }
 
     fn add_token(&mut self, mut token: TokenType) {
-        let value = self.source[self.start..self.current].to_string();
+        let value = String::from(&self.scratch);
 
         // Identifiers lead to a case where there might be a better (i.e. more accurate)
         // token type than the one passed in. This logic should arguably be in `identifier`.
@@ -287,7 +302,7 @@ mod tests {
     use super::*;
     #[test]
     fn it_can_advance_through_stream() {
-        let mut scanner = Scanner::new(String::from("true;"));
+        let mut scanner = Scanner::new("true;");
         assert_eq!(Some('t'), scanner.advance());
         assert_eq!(Some('r'), scanner.advance());
         assert_eq!(Some('u'), scanner.advance());
@@ -299,7 +314,7 @@ mod tests {
 
     #[test]
     fn it_can_peek_without_advancing() {
-        let mut scanner = Scanner::new(String::from("true;"));
+        let mut scanner = Scanner::new("true;");
         assert_eq!(Some('t'), scanner.advance());
         assert_eq!(Some('r'), scanner.peek());
         assert_eq!(Some('r'), scanner.advance());
@@ -315,7 +330,7 @@ mod tests {
 
     #[test]
     fn it_can_peek_ahead_without_advancing() {
-        let mut scanner = Scanner::new(String::from("true;"));
+        let mut scanner = Scanner::new("true;");
         assert_eq!(Some('t'), scanner.advance());
         assert_eq!(Some('u'), scanner.peek_next());
         assert_eq!(Some('r'), scanner.advance());
@@ -332,7 +347,7 @@ mod tests {
     // TODO: This test reaches into the guts of Scanner a bit more than I'd like.
     #[test]
     fn it_can_scan_a_boolean_token() {
-        let mut scanner = Scanner::new(String::from("true"));
+        let mut scanner = Scanner::new("true");
         scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
     }
@@ -340,7 +355,7 @@ mod tests {
     // Induction: assumes all reserved words work the same
     #[test]
     fn it_can_scan_a_reserved_word() {
-        let mut scanner = Scanner::new(String::from("return"));
+        let mut scanner = Scanner::new("return");
         scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
 
@@ -351,7 +366,7 @@ mod tests {
 
     #[test]
     fn it_can_scan_a_non_reserved_word() {
-        let mut scanner = Scanner::new(String::from("foobar"));
+        let mut scanner = Scanner::new("foobar");
         scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
 
@@ -363,7 +378,7 @@ mod tests {
     // Induction: assumes all single character tokens work the same
     #[test]
     fn it_can_scan_a_single_character_token() {
-        let mut scanner = Scanner::new(String::from("("));
+        let mut scanner = Scanner::new("(");
         scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
 
@@ -375,7 +390,7 @@ mod tests {
     // Induction: assumes all dual character tokens work the same
     #[test]
     fn it_can_scan_a_dual_character_token() {
-        let mut scanner = Scanner::new(String::from("!="));
+        let mut scanner = Scanner::new("!=");
         scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
 
@@ -386,14 +401,14 @@ mod tests {
 
     #[test]
     fn it_ignores_comments() {
-        let mut scanner = Scanner::new(String::from("//"));
+        let mut scanner = Scanner::new("//");
         scanner.scan_token();
         assert_eq!(0, scanner.tokens.len());
     }
 
     #[test]
     fn it_scans_literal_slashes() {
-        let mut scanner = Scanner::new(String::from("/"));
+        let mut scanner = Scanner::new("/");
         scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
 
@@ -404,7 +419,7 @@ mod tests {
 
     #[test]
     fn it_increments_linecount() {
-        let mut scanner = Scanner::new(String::from("\n"));
+        let mut scanner = Scanner::new("\n");
         let line = scanner.line;
         scanner.scan_token();
         assert_eq!(line + 1, scanner.line);
@@ -413,14 +428,14 @@ mod tests {
     // Induction: assumes it works for all don't cares
     #[test]
     fn it_ignores_dont_care_tokens() {
-        let mut scanner = Scanner::new(String::from("\t"));
+        let mut scanner = Scanner::new("\t");
         scanner.scan_token();
         assert_eq!(0, scanner.tokens.len());
     }
 
     #[test]
     fn it_can_scan_string_literals() {
-        let mut scanner = Scanner::new(String::from("\"foo\""));
+        let mut scanner = Scanner::new("\"foo\"");
         scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
 
@@ -435,7 +450,7 @@ mod tests {
 
     #[test]
     fn it_can_scan_integers() {
-        let mut scanner = Scanner::new(String::from("42"));
+        let mut scanner = Scanner::new("42");
         scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
 
@@ -446,7 +461,7 @@ mod tests {
 
     #[test]
     fn it_can_scan_floating_point_numbers() {
-        let mut scanner = Scanner::new(String::from("3.14"));
+        let mut scanner = Scanner::new("3.14");
         scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
 
