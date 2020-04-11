@@ -272,9 +272,10 @@ impl<'a> Scanner<'a> {
     }
 
     fn advance(&mut self) -> Option<char> {
-        let c = self.chars.next();
-        c.map(|c| self.scratch.push(c));
-        c
+        self.chars.next().map(|c| {
+            self.scratch.push(c);
+            c
+        })
     }
 
     fn add_token(&mut self, mut token: TokenType) {
