@@ -3,6 +3,9 @@ use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::string::ToString;
 
+#[macro_use]
+extern crate if_chain;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum TokenType {
     /// Single-character tokens
@@ -237,13 +240,16 @@ impl Scanner {
             self.advance();
         }
 
-        if let Some('.') = self.peek() {
-            self.advance();
-
-            while Scanner::is_digit(self.peek()) {
+        if_chain! {
+            if let Some('.') = self.peek();
+            if Scanner::is_digit(self.peek_next()); then {
                 self.advance();
+
+                while Scanner::is_digit(self.peek()) {
+                    self.advance();
+                }
             }
-        };
+        }
 
         // TODO: this is a bit dodgy
         let value = self.source[self.start..self.current].to_string();
