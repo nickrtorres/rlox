@@ -93,6 +93,12 @@ struct Scanner<'a> {
 }
 
 impl<'a> Scanner<'a> {
+    /// Creates a new `Scanner` whose referent is `source`.
+    ///
+    /// Note, a `Scanner` is only valid for the lifetime of source since a
+    /// scanner is really just an encapsulated iterator over a given source
+    /// `String`. Rather than having the `Scanner`s own Strings, just store a
+    /// shared reference to the source input as a `Peekable<Chars>` iterator
     fn new(source: &'a str) -> Self {
         Scanner {
             // cautiously optimistic allocation
@@ -168,8 +174,8 @@ impl<'a> Scanner<'a> {
         };
     }
 
-    // this method has weird semantics. it feels like the right abstraction but maybe it can use
-    // some work
+    // this method has weird semantics. it feels like the right abstraction but
+    // maybe it can use some work
     fn is_compound_equal_operator(&mut self, yes: TokenType, no: TokenType) {
         if let Some('=') = self.peek() {
             self.advance();
@@ -281,8 +287,9 @@ impl<'a> Scanner<'a> {
     fn add_token(&mut self, token: TokenType) {
         let value = String::from(&self.scratch);
 
-        // Identifiers lead to a case where there might be a better (i.e. more accurate)
-        // token type than the one passed in. This logic should arguably be in `identifier`.
+        // Identifiers lead to a case where there might be a better (i.e. more
+        // accurate) token type than the one passed in. This logic should
+        // arguably be in `identifier`.
         let token = Scanner::is_keyword(&value).map_or(token, Clone::clone);
         self.tokens.push(Token::new(token, value, self.line));
     }
