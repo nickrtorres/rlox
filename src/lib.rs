@@ -124,7 +124,11 @@ impl Scanner {
     }
 
     fn scan_token(&mut self) {
-        let c = self.advance().unwrap();
+        let c = match self.advance() {
+            Some(c) => c,
+            None => return,
+        };
+
         match c {
             '(' => self.add_token(TokenType::LeftParen, None),
             ')' => self.add_token(TokenType::RightParen, None),
