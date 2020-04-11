@@ -6,9 +6,6 @@ use std::iter::Peekable;
 use std::str::Chars;
 use std::string::ToString;
 
-#[macro_use]
-extern crate if_chain;
-
 #[derive(Debug, Clone, PartialEq)]
 enum TokenType {
     /// Single-character tokens

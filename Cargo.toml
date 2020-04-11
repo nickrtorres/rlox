@@ -9,4 +9,3 @@ edition = "2018"
 [dependencies]
 program = "0.3.0"
 lazy_static = "1.4.0"
-if_chain = "1.0.0"
