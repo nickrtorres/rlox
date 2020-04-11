@@ -1,3 +1,5 @@
+#! [warn(clippy::pedantic)]
+
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::string::ToString;
@@ -249,11 +251,6 @@ impl Scanner {
         let c = self.source.chars().nth(self.current);
         self.current += 1;
         c
-    }
-
-    fn look_ahead_for(&self, expected: char) -> bool {
-        // stub
-        true
     }
 
     fn add_token(&mut self, mut token: TokenType, literal: Option<String>) {
