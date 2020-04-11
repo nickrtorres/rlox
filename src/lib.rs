@@ -2,6 +2,7 @@
 #![feature(str_strip)]
 use lazy_static::lazy_static;
 use std::collections::HashMap;
+use std::iter::Peekable;
 use std::str::Chars;
 use std::string::ToString;
 
@@ -83,34 +84,29 @@ impl ToString for Token {
 }
 
 struct Scanner<'a> {
-    source: String,
+    // Scratch pad for Tokens
     scratch: String,
-    chars: Chars<'a>,
+    chars: Peekable<Chars<'a>>,
+
     // Consider making tokens, start and current Cell's to avoid
     // having to hold a mut Scanner
     tokens: Vec<Token>,
-    start: usize,
-    current: usize,
     line: usize,
 }
 
 impl<'a> Scanner<'a> {
     fn new(source: &'a str) -> Self {
         Scanner {
-            // SLOW!
-            source: String::from(source),
+            // cautiously optimistic allocation
             scratch: String::with_capacity(1024),
-            chars: source.chars(),
+            chars: source.chars().peekable(),
             tokens: Vec::new(),
-            start: 0,
-            current: 0,
             line: 1,
         }
     }
 
     pub fn scan_tokens<'s>(&'s mut self) -> &'s Vec<Token> {
         while !self.is_at_end() {
-            self.start = self.current;
             self.scan_token();
         }
 
@@ -120,8 +116,8 @@ impl<'a> Scanner<'a> {
         &self.tokens
     }
 
-    fn is_at_end(&self) -> bool {
-        self.current >= self.source.len()
+    fn is_at_end(&mut self) -> bool {
+        self.chars.peek().is_none()
     }
 
     fn scan_token(&mut self) {
@@ -235,14 +231,13 @@ impl<'a> Scanner<'a> {
             self.advance();
         }
 
-        if_chain! {
-            if let Some('.') = self.peek();
-            if Scanner::is_digit(self.peek_next()); then {
-                self.advance();
+        if let Some('.') = self.peek() {
+            // TODO peek_next is a pain to implement since Chars only affords
+            // `peekable().peek()`. For now don't do it
+            self.advance();
 
-                while Scanner::is_digit(self.peek()) {
-                    self.advance();
-                }
+            while Scanner::is_digit(self.peek()) {
+                self.advance();
             }
         }
 
@@ -252,12 +247,8 @@ impl<'a> Scanner<'a> {
         self.add_token(token);
     }
 
-    fn peek(&self) -> Option<char> {
-        self.source.chars().nth(self.current)
-    }
-
-    fn peek_next(&self) -> Option<char> {
-        self.source.chars().nth(self.current + 1)
+    fn peek(&mut self) -> Option<char> {
+        self.chars.peek().map(|s| *s)
     }
 
     fn string(&mut self) {
@@ -283,7 +274,6 @@ impl<'a> Scanner<'a> {
     fn advance(&mut self) -> Option<char> {
         let c = self.chars.next();
         c.map(|c| self.scratch.push(c));
-        self.current += 1;
         c
     }
 
@@ -325,22 +315,6 @@ mod tests {
         assert_eq!(Some(';'), scanner.peek());
         assert_eq!(Some(';'), scanner.advance());
         assert_eq!(None, scanner.peek());
-        assert_eq!(None, scanner.advance());
-    }
-
-    #[test]
-    fn it_can_peek_ahead_without_advancing() {
-        let mut scanner = Scanner::new("true;");
-        assert_eq!(Some('t'), scanner.advance());
-        assert_eq!(Some('u'), scanner.peek_next());
-        assert_eq!(Some('r'), scanner.advance());
-        assert_eq!(Some('e'), scanner.peek_next());
-        assert_eq!(Some('u'), scanner.advance());
-        assert_eq!(Some(';'), scanner.peek_next());
-        assert_eq!(Some('e'), scanner.advance());
-        assert_eq!(None, scanner.peek_next());
-        assert_eq!(Some(';'), scanner.advance());
-        assert_eq!(None, scanner.peek_next());
         assert_eq!(None, scanner.advance());
     }
 
