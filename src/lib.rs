@@ -102,9 +102,11 @@ impl<'a> Scanner<'a> {
         }
     }
 
+    /// Returns the list of Tokens owned by self
     pub fn scan_tokens<'s>(&'s mut self) -> &'s Vec<Token> {
         while !self.is_at_end() {
             self.scan_token();
+            self.scratch.clear();
         }
 
         self.tokens
@@ -245,7 +247,7 @@ impl<'a> Scanner<'a> {
     }
 
     fn peek(&mut self) -> Option<char> {
-        self.chars.peek().map(|s| *s)
+        self.chars.peek().copied()
     }
 
     fn string(&mut self) {
@@ -257,8 +259,8 @@ impl<'a> Scanner<'a> {
 
         // panic: unwrapping should be safe as someone earlier
         // should catch an unterminated "
-        debug_assert!(self.scratch.starts_with("\""));
-        debug_assert!(self.scratch.ends_with("\""));
+        debug_assert!(self.scratch.starts_with('\"'));
+        debug_assert!(self.scratch.ends_with('\"'));
         let value = self
             .scratch
             .strip_suffix("\"")
@@ -275,12 +277,12 @@ impl<'a> Scanner<'a> {
         })
     }
 
-    fn add_token(&mut self, mut token: TokenType) {
+    fn add_token(&mut self, token: TokenType) {
         let value = String::from(&self.scratch);
 
         // Identifiers lead to a case where there might be a better (i.e. more accurate)
         // token type than the one passed in. This logic should arguably be in `identifier`.
-        let token = Scanner::is_keyword(&value).map_or(token, |t| t.clone());
+        let token = Scanner::is_keyword(&value).map_or(token, std::clone::Clone::clone);
         self.tokens.push(Token::new(token, value, self.line));
     }
 }
@@ -440,5 +442,89 @@ mod tests {
         let t = scanner.tokens.first();
         let expected = Token::new(TokenType::Number(3.14), String::from("3.14"), 1);
         assert_eq!(t, Some(&expected));
+    }
+
+    #[test]
+    fn it_can_scan_numerous_tokens_expression() {
+        let mut scanner = Scanner::new("var breakfast;");
+        let actual = scanner.scan_tokens();
+        // 'var' , 'breakfast' , ';' , 'EOF'
+        assert_eq!(4, actual.len());
+
+        let expected = vec![
+            Token::new(TokenType::Var, String::from("var"), 1),
+            Token::new(TokenType::Identifier, String::from("breakfast"), 1),
+            Token::new(TokenType::Semicolon, String::from(";"), 1),
+            Token::new(TokenType::Eof, String::from(""), 1),
+        ];
+
+        for i in 0..4 {
+            assert_eq!(actual.get(i), expected.get(i));
+        }
+    }
+
+    #[test]
+    fn it_can_scan_numerous_tokens_assignment() {
+        let mut scanner = Scanner::new("var breakfast = \"bagels\";");
+        let actual = scanner.scan_tokens();
+        // 'var' , 'breakfast' , '=' , 'bagels' , ';' , 'EOF'
+        assert_eq!(6, actual.len());
+
+        let expected = vec![
+            Token::new(TokenType::Var, String::from("var"), 1),
+            Token::new(TokenType::Identifier, String::from("breakfast"), 1),
+            Token::new(TokenType::Equal, String::from("="), 1),
+            Token::new(
+                TokenType::String(String::from("bagels")),
+                String::from("\"bagels\""),
+                1,
+            ),
+            Token::new(TokenType::Semicolon, String::from(";"), 1),
+            Token::new(TokenType::Eof, String::from(""), 1),
+        ];
+
+        for i in 0..6 {
+            assert_eq!(actual.get(i), expected.get(i));
+        }
+    }
+
+    #[test]
+    fn it_can_scan_numerous_tokens_conditional_with_newlines() {
+        let mut scanner =
+            Scanner::new("if (condition) {\n  print \"yes\";\n} else {\n  print \"no\";\n}\n");
+        let actual = scanner.scan_tokens();
+        // 'if' , '(' , 'condition' , ')' , '{' , 'print' , 'yes' , ';' , '}' , 'else' , '{' ,
+        // 'print' , 'no' , ';' , '}' , 'EOF'
+        assert_eq!(16, actual.len());
+        let expected = vec![
+            Token::new(TokenType::If, String::from("if"), 1),
+            Token::new(TokenType::LeftParen, String::from("("), 1),
+            Token::new(TokenType::Identifier, String::from("condition"), 1),
+            Token::new(TokenType::RightParen, String::from(")"), 1),
+            Token::new(TokenType::LeftBrace, String::from("{"), 1),
+            Token::new(TokenType::Print, String::from("print"), 2),
+            Token::new(
+                TokenType::String(String::from("yes")),
+                String::from("\"yes\""),
+                2,
+            ),
+            Token::new(TokenType::Semicolon, String::from(";"), 2),
+            Token::new(TokenType::RightBrace, String::from("}"), 3),
+            Token::new(TokenType::Else, String::from("else"), 3),
+            Token::new(TokenType::LeftBrace, String::from("{"), 3),
+            Token::new(TokenType::Print, String::from("print"), 4),
+            Token::new(
+                TokenType::String(String::from("no")),
+                String::from("\"no\""),
+                4,
+            ),
+            Token::new(TokenType::Semicolon, String::from(";"), 4),
+            Token::new(TokenType::RightBrace, String::from("}"), 5),
+            Token::new(TokenType::Eof, String::from(""), 6),
+        ];
+
+        for i in 0..16 {
+            assert_eq!(actual.get(i), expected.get(i));
+        }
     }
 }
