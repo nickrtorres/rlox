@@ -58,6 +58,7 @@ enum TokenType {
 }
 
 impl TokenType {
+    /// TODO rename this
     pub fn is_keyword(token: &str) -> TokenType {
         match token {
             "and" => TokenType::And,
