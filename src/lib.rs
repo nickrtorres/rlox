@@ -58,25 +58,25 @@ enum TokenType {
 }
 
 impl TokenType {
-    pub fn is_keyword(token: &str) -> Option<TokenType> {
+    pub fn is_keyword(token: &str) -> TokenType {
         match token {
-            "and" => Some(TokenType::And),
-            "class" => Some(TokenType::Class),
-            "else" => Some(TokenType::Else),
-            "false" => Some(TokenType::False),
-            "for" => Some(TokenType::For),
-            "fun" => Some(TokenType::Fun),
-            "if" => Some(TokenType::If),
-            "nil" => Some(TokenType::Nil),
-            "or" => Some(TokenType::Or),
-            "print" => Some(TokenType::Print),
-            "return" => Some(TokenType::Return),
-            "super" => Some(TokenType::Super),
-            "this" => Some(TokenType::This),
-            "true" => Some(TokenType::True),
-            "var" => Some(TokenType::Var),
-            "while" => Some(TokenType::While),
-            _ => None,
+            "and" => TokenType::And,
+            "class" => TokenType::Class,
+            "else" => TokenType::Else,
+            "false" => TokenType::False,
+            "for" => TokenType::For,
+            "fun" => TokenType::Fun,
+            "if" => TokenType::If,
+            "nil" => TokenType::Nil,
+            "or" => TokenType::Or,
+            "print" => TokenType::Print,
+            "return" => TokenType::Return,
+            "super" => TokenType::Super,
+            "this" => TokenType::This,
+            "true" => TokenType::True,
+            "var" => TokenType::Var,
+            "while" => TokenType::While,
+            _ => TokenType::Identifier,
         }
     }
 }
@@ -213,7 +213,7 @@ impl<'a> Scanner<'a> {
             self.advance();
         }
 
-        self.add_token(TokenType::Identifier);
+        self.add_token(TokenType::is_keyword(&self.scratch));
     }
 
     /// Adapter for Option<char>
@@ -280,11 +280,6 @@ impl<'a> Scanner<'a> {
 
     fn add_token(&mut self, token: TokenType) {
         let value = String::from(&self.scratch);
-
-        // Identifiers lead to a case where there might be a better (i.e. more
-        // accurate) token type than the one passed in. This logic should
-        // arguably be in `identifier`.
-        let token = TokenType::is_keyword(&value).unwrap_or(token);
         self.tokens.push(Token::new(token, value, self.line));
     }
 }
