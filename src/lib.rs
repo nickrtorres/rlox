@@ -1,6 +1,5 @@
 #![warn(clippy::pedantic)]
 #![feature(str_strip)]
-use lazy_static::lazy_static;
 use std::clone::Clone;
 use std::collections::HashMap;
 use std::iter::Peekable;
@@ -56,6 +55,30 @@ enum TokenType {
     While,
 
     Eof,
+}
+
+impl TokenType {
+    pub fn is_keyword(token: &str) -> Option<TokenType> {
+        match token {
+            "and" => Some(TokenType::And),
+            "class" => Some(TokenType::Class),
+            "else" => Some(TokenType::Else),
+            "false" => Some(TokenType::False),
+            "for" => Some(TokenType::For),
+            "fun" => Some(TokenType::Fun),
+            "if" => Some(TokenType::If),
+            "nil" => Some(TokenType::Nil),
+            "or" => Some(TokenType::Or),
+            "print" => Some(TokenType::Print),
+            "return" => Some(TokenType::Return),
+            "super" => Some(TokenType::Super),
+            "this" => Some(TokenType::This),
+            "true" => Some(TokenType::True),
+            "var" => Some(TokenType::Var),
+            "while" => Some(TokenType::While),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -185,35 +208,6 @@ impl<'a> Scanner<'a> {
         };
     }
 
-    // this probably slow since it clones, but it looks a lot nicer!
-    fn is_keyword(s: &str) -> Option<&TokenType> {
-        lazy_static! {
-            static ref KEYWORDS: HashMap<&'static str, TokenType> = [
-                ("and", TokenType::And),
-                ("class", TokenType::Class),
-                ("else", TokenType::Else),
-                ("false", TokenType::False),
-                ("for", TokenType::For),
-                ("fun", TokenType::Fun),
-                ("if", TokenType::If),
-                ("nil", TokenType::Nil),
-                ("or", TokenType::Or),
-                ("print", TokenType::Print),
-                ("return", TokenType::Return),
-                ("super", TokenType::Super),
-                ("this", TokenType::This),
-                ("true", TokenType::True),
-                ("var", TokenType::Var),
-                ("while", TokenType::While)
-            ]
-            .iter()
-            .cloned()
-            .collect();
-        }
-
-        KEYWORDS.get(s)
-    }
-
     fn identifier(&mut self) {
         while Scanner::is_alphanumeric(self.peek()) {
             self.advance();
@@ -290,7 +284,7 @@ impl<'a> Scanner<'a> {
         // Identifiers lead to a case where there might be a better (i.e. more
         // accurate) token type than the one passed in. This logic should
         // arguably be in `identifier`.
-        let token = Scanner::is_keyword(&value).map_or(token, Clone::clone);
+        let token = TokenType::is_keyword(&value).unwrap_or(token);
         self.tokens.push(Token::new(token, value, self.line));
     }
 }
