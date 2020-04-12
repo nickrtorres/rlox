@@ -1,7 +1,6 @@
 #![warn(clippy::pedantic)]
 #![feature(str_strip)]
 use std::clone::Clone;
-use std::collections::HashMap;
 use std::iter::Peekable;
 use std::str::Chars;
 use std::string::ToString;
