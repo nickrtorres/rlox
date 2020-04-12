@@ -59,7 +59,7 @@ enum TokenType {
 
 impl TokenType {
     /// TODO rename this
-    pub fn is_keyword(token: &str) -> TokenType {
+    pub fn identifier_from_str(token: &str) -> TokenType {
         match token {
             "and" => TokenType::And,
             "class" => TokenType::Class,
@@ -214,7 +214,7 @@ impl<'a> Scanner<'a> {
             self.advance();
         }
 
-        self.add_token(TokenType::is_keyword(&self.scratch));
+        self.add_token(TokenType::identifier_from_str(&self.scratch));
     }
 
     /// Adapter for Option<char>
