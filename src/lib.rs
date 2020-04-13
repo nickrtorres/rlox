@@ -6,7 +6,7 @@ use std::str::Chars;
 use std::string::ToString;
 
 #[derive(Debug, Clone, PartialEq)]
-enum TokenType {
+pub enum TokenType {
     /// Single-character tokens
     LeftParen,
     RightParen,
@@ -82,7 +82,7 @@ impl TokenType {
 }
 
 #[derive(Debug, PartialEq)]
-struct Token {
+pub struct Token {
     token_type: TokenType,
     lexeme: String,
     line: usize,
@@ -104,7 +104,7 @@ impl ToString for Token {
     }
 }
 
-struct Scanner<'a> {
+pub struct Scanner<'a> {
     // Scratch pad for Tokens
     scratch: String,
     chars: Peekable<Chars<'a>>,
@@ -122,7 +122,7 @@ impl<'a> Scanner<'a> {
     /// scanner is really just an encapsulated iterator over a given source
     /// `String`. Rather than having the `Scanner`s own Strings, just store a
     /// shared reference to the source input as a `Peekable<Chars>` iterator
-    fn new(source: &'a str) -> Self {
+    pub fn new(source: &'a str) -> Self {
         Scanner {
             // cautiously optimistic allocation
             scratch: String::with_capacity(1024),
