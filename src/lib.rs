@@ -58,6 +58,7 @@ pub enum TokenType {
 
 impl TokenType {
     /// TODO rename this
+    #[must_use]
     pub fn identifier_from_str(token: &str) -> TokenType {
         match token {
             "and" => TokenType::And,
@@ -89,6 +90,7 @@ pub struct Token {
 }
 
 impl Token {
+    #[must_use]
     pub fn new(token_type: TokenType, lexeme: String, line: usize) -> Self {
         Token {
             token_type,
@@ -122,6 +124,7 @@ impl<'a> Scanner<'a> {
     /// scanner is really just an encapsulated iterator over a given source
     /// `String`. Rather than having the `Scanner`s own Strings, just store a
     /// shared reference to the source input as a `Peekable<Chars>` iterator
+    #[must_use]
     pub fn new(source: &'a str) -> Self {
         Scanner {
             // cautiously optimistic allocation
