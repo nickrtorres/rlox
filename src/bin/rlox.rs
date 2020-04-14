@@ -17,7 +17,7 @@ fn run<T: BufRead>(b: &mut T) -> Result<()> {
     let mut scanner = Scanner::new(&buf);
 
     for token in scanner.scan_tokens() {
-        println!("{:?}", token);
+        writeln!(io::stdout(), "{:?}", token)?;
     }
 
     Ok(())
