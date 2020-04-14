@@ -284,6 +284,38 @@ impl<'a> Scanner<'a> {
     }
 }
 
+/// jlox implements this with OOP. Namely jlox:
+/// - Defines an abstract class: Expr
+/// - Creates a subclass for each variant (i.e. Binary, Grouping, Literal, Unary)
+/// - Uses the visitor pattern to dispatch the correct method for each type.
+///
+/// we'll trade in abstract classes and the visitor pattern for traits and generics.
+pub enum Expression<T, U> {
+    Binary(Binary<T, U>),
+    Grouping(Grouping<T>),
+    Literal(Literal<T>),
+    Unary(Unary<T>),
+}
+
+pub struct Binary<T, U> {
+    left: T,
+    right: U,
+    operator: Token,
+}
+
+pub struct Grouping<T> {
+    expression: T,
+}
+
+pub struct Literal<T> {
+    value: Option<T>,
+}
+
+pub struct Unary<T> {
+    operator: Token,
+    right: T,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
