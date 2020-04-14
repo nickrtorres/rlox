@@ -5,7 +5,7 @@ use std::iter::Peekable;
 use std::str::Chars;
 use std::string::ToString;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum TokenType {
     /// Single-character tokens
     LeftParen,
