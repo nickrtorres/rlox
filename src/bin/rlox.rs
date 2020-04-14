@@ -1,3 +1,6 @@
+extern crate rlox;
+use rlox::Scanner;
+
 use program::perror;
 use std::env;
 use std::error;
@@ -11,8 +14,10 @@ type Result<T> = result::Result<T, Error>;
 fn run<T: BufRead>(b: &mut T) -> Result<()> {
     let mut buf = String::with_capacity(1024);
     let _ = b.read_line(&mut buf)?;
-    for token in buf.split_whitespace() {
-        println!("{}", token);
+    let mut scanner = Scanner::new(&buf);
+
+    for token in scanner.scan_tokens() {
+        println!("{:?}", token);
     }
 
     Ok(())
@@ -34,15 +39,17 @@ fn run_file(f: &str) -> Result<()> {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    if args.len() > 2 {
-        perror(format!("usage: rlox [script]"));
-    } else if args.len() == 2 {
-        if let Err(e) = run_file(&args[1]) {
-            perror(e);
+    match args.len() {
+        x if x > 2 => perror("usage: rlox [script]".to_owned()),
+        x if x == 2 => {
+            if let Err(e) = run_file(&args[1]) {
+                perror(e);
+            }
         }
-    } else {
-        if let Err(e) = run_prompt() {
-            perror(e);
+        _ => {
+            if let Err(e) = run_prompt() {
+                perror(e);
+            }
         }
     }
 }
