@@ -1,5 +1,6 @@
 #![warn(clippy::pedantic)]
 #![feature(str_strip)]
+use std::cell::Cell;
 use std::iter::Peekable;
 use std::str::Chars;
 
@@ -317,18 +318,27 @@ pub struct Unary<T> {
     right: T,
 }
 
+/// `Parser` is **not** thread safe. Internally, `Parser` uses interior
+/// mutability to manage it's internal cursor for the current, next, and
+/// previous tokens. This is an implementation detail most end users don't need
+/// to worry about.
 pub struct Parser<'a> {
     tokens: &'a Vec<Token>,
-    idx: usize,
+    /// cursor is an implementation detail end users shouldn't worry about. Use
+    /// interior mutability here to avoid forcing the user to hold a mutable Parser.
+    cursor: Cell<usize>,
 }
 
 impl<'a> Parser<'a> {
     #[must_use]
     pub fn new(tokens: &'a Vec<Token>) -> Self {
-        Parser { tokens, idx: 0 }
+        Parser {
+            tokens,
+            cursor: Cell::new(0),
+        }
     }
 
-    pub fn match_tokens(&mut self, token_types: Vec<TokenType>) -> bool {
+    pub fn match_tokens(&self, token_types: Vec<TokenType>) -> bool {
         for token_type in token_types {
             if self.check(token_type) {
                 self.advance();
@@ -336,7 +346,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        return false;
+        false
     }
 
     pub fn check(&self, token_type: TokenType) -> bool {
@@ -345,8 +355,7 @@ impl<'a> Parser<'a> {
         }
 
         self.peek()
-            .map(|t| t.token_type == token_type)
-            .unwrap_or(false)
+            .map_or(false, move |t| t.token_type == token_type)
     }
 
     pub fn is_at_end(&self) -> bool {
@@ -354,17 +363,18 @@ impl<'a> Parser<'a> {
     }
 
     pub fn peek(&self) -> Option<&Token> {
-        self.tokens.get(self.idx)
+        self.tokens.get(self.cursor.get())
     }
 
     pub fn previous(&self) -> Option<&Token> {
-        debug_assert!(self.idx > 0);
-        self.tokens.get(self.idx - 1)
+        debug_assert!(self.cursor.get() > 0);
+        self.tokens.get(self.cursor.get() - 1)
     }
 
-    pub fn advance(&mut self) -> Option<&Token> {
+    pub fn advance(&self) -> Option<&Token> {
         if !self.is_at_end() {
-            self.idx += 1;
+            let old = self.cursor.get();
+            self.cursor.replace(old + 1);
         }
 
         self.previous()
@@ -615,7 +625,7 @@ mod tests {
     #[test]
     fn it_can_advance_over_token_iterator() {
         let mut scanner = Scanner::new("var breakfast;");
-        let mut parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens());
 
         assert_eq!(
             Some(&Token::new(TokenType::Var, String::from("var"), 1)),
