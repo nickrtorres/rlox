@@ -2,7 +2,6 @@
 #![feature(str_strip)]
 use std::iter::Peekable;
 use std::str::Chars;
-use std::string::ToString;
 
 #[derive(Debug, PartialEq)]
 pub enum TokenType {
