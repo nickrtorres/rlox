@@ -329,6 +329,27 @@ impl<'a> Parser<'a> {
         Parser { tokens, idx: 0 }
     }
 
+    pub fn match_tokens(&mut self, token_types: Vec<TokenType>) -> bool {
+        for token_type in token_types {
+            if self.check(token_type) {
+                self.advance();
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    pub fn check(&self, token_type: TokenType) -> bool {
+        if self.is_at_end() {
+            return false;
+        }
+
+        self.peek()
+            .map(|t| t.token_type == token_type)
+            .unwrap_or(false)
+    }
+
     pub fn is_at_end(&self) -> bool {
         self.peek().map(|t| t.token_type == TokenType::Eof).unwrap()
     }
