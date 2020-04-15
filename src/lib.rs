@@ -1,7 +1,6 @@
 #![warn(clippy::pedantic)]
 #![feature(str_strip)]
 use std::iter::Peekable;
-use std::slice::Iter;
 use std::str::Chars;
 use std::string::ToString;
 
@@ -320,19 +319,35 @@ pub struct Unary<T> {
 }
 
 pub struct Parser<'a> {
-    tokens: Iter<'a, Token>,
+    tokens: &'a Vec<Token>,
+    idx: usize,
 }
 
 impl<'a> Parser<'a> {
     #[must_use]
-    pub fn new(tokens: &'a [Token]) -> Self {
-        Parser {
-            tokens: tokens.iter(),
-        }
+    pub fn new(tokens: &'a Vec<Token>) -> Self {
+        Parser { tokens, idx: 0 }
+    }
+
+    pub fn is_at_end(&self) -> bool {
+        self.peek().map(|t| t.token_type == TokenType::Eof).unwrap()
+    }
+
+    pub fn peek(&self) -> Option<&Token> {
+        self.tokens.get(self.idx)
+    }
+
+    pub fn previous(&self) -> Option<&Token> {
+        debug_assert!(self.idx > 0);
+        self.tokens.get(self.idx - 1)
     }
 
     pub fn advance(&mut self) -> Option<&Token> {
-        self.tokens.next()
+        if !self.is_at_end() {
+            self.idx += 1;
+        }
+
+        self.previous()
     }
 }
 
@@ -598,10 +613,10 @@ mod tests {
             Some(&Token::new(TokenType::Semicolon, String::from(";"), 1)),
             parser.advance()
         );
+
         assert_eq!(
-            Some(&Token::new(TokenType::Eof, String::from(""), 1)),
+            Some(&Token::new(TokenType::Semicolon, String::from(";"), 1)),
             parser.advance()
         );
-        assert_eq!(None, parser.advance());
     }
 }
