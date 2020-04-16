@@ -376,6 +376,7 @@ impl<'a> Parser<'a> {
         let mut expr = self.addition();
 
         while self.match_tokens(vec![
+            TokenType::Greater,
             TokenType::GreaterEqual,
             TokenType::Less,
             TokenType::LessEqual,
@@ -886,6 +887,49 @@ mod tests {
             left: Box::new(add_expr),
             operator: &star,
             right: Box::new(Expr::Literal(Object::Number(3 as f64))),
+        });
+
+        assert_eq!(expected, *parser.parse());
+    }
+
+    #[test]
+    fn it_can_parse_an_arbitrarily_complex_expression() {
+        let mut scanner = Scanner::new("(1 + 2) * 3 > (4 - 5) / 6");
+        let parser = Parser::new(scanner.scan_tokens());
+
+        let plus = Token::new(TokenType::Plus, "+".to_owned(), 1);
+        let add_expr = Expr::Grouping(Box::new(Expr::Binary(Binary {
+            left: Box::new(Expr::Literal(Object::Number(1 as f64))),
+            operator: &plus,
+            right: Box::new(Expr::Literal(Object::Number(2 as f64))),
+        })));
+
+        let star = Token::new(TokenType::Star, "*".to_owned(), 1);
+        let star_expr = Expr::Binary(Binary {
+            left: Box::new(add_expr),
+            operator: &star,
+            right: Box::new(Expr::Literal(Object::Number(3 as f64))),
+        });
+
+        let minus = Token::new(TokenType::Minus, "-".to_owned(), 1);
+        let sub_expr = Expr::Grouping(Box::new(Expr::Binary(Binary {
+            left: Box::new(Expr::Literal(Object::Number(4 as f64))),
+            operator: &minus,
+            right: Box::new(Expr::Literal(Object::Number(5 as f64))),
+        })));
+
+        let slash = Token::new(TokenType::Slash, "/".to_owned(), 1);
+        let slash_expr = Expr::Binary(Binary {
+            left: Box::new(sub_expr),
+            operator: &slash,
+            right: Box::new(Expr::Literal(Object::Number(6 as f64))),
+        });
+
+        let greater = Token::new(TokenType::Greater, ">".to_owned(), 1);
+        let expected = Expr::Binary(Binary {
+            left: Box::new(star_expr),
+            operator: &greater,
+            right: Box::new(slash_expr),
         });
 
         assert_eq!(expected, *parser.parse());
