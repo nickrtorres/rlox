@@ -1,5 +1,6 @@
 #![warn(clippy::pedantic)]
 #![feature(str_strip)]
+#![feature(bool_to_option)]
 use std::cell::Cell;
 use std::iter::Peekable;
 use std::str::Chars;
@@ -445,16 +446,16 @@ impl<'a> Parser<'a> {
         self.advance();
     }
 
-    // TODO: this should be a vec. it should be a slice
+    // TODO: this should not be a vec. it should be a slice or an iterator
+    //
+    // maybe this should just be an if statement
     pub fn match_tokens(&self, token_types: Vec<TokenType>) -> bool {
-        for token_type in token_types {
-            if self.check(token_type) {
-                self.advance();
-                return true;
-            }
-        }
-
-        false
+        token_types
+            .into_iter()
+            .any(|token_type| self.check(token_type))
+            .then_some(())
+            .and_then(|_| self.advance())
+            .is_some()
     }
 
     pub fn check(&self, token_type: TokenType) -> bool {
