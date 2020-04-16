@@ -500,8 +500,23 @@ impl<'a> Parser<'a> {
             return false;
         }
 
-        self.peek()
-            .map_or(false, move |t| t.token_type == token_type)
+        self.peek().map_or(false, move |t| match t.token_type {
+            TokenType::String(_) => {
+                if let TokenType::String(_) = token_type {
+                    true
+                } else {
+                    false
+                }
+            }
+            TokenType::Number(_) => {
+                if let TokenType::Number(_) = token_type {
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => t.token_type == token_type,
+        })
     }
 
     pub fn is_at_end(&self) -> bool {
