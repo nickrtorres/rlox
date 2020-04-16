@@ -472,7 +472,7 @@ impl<'a> Parser<'a> {
             return Box::new(Expr::Grouping(expr));
         }
 
-        Box::new(Expr::Literal(Object::Nil))
+        unimplemented!();
     }
 
     pub fn consume(&self, token_type: TokenType, msg: &'static str) {
