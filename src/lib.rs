@@ -359,12 +359,12 @@ impl<'a> Parser<'a> {
         let mut expr = self.comparison();
 
         while self.match_tokens(vec![TokenType::BangEqual, TokenType::EqualEqual]) {
-            let mut operator = self.previous();
+            let operator = self.previous();
             let right = self.comparison();
 
             expr = Box::new(Expr::Binary(Binary {
                 left: expr,
-                right: right,
+                right,
                 operator: operator.unwrap(),
             }));
         }
@@ -384,7 +384,7 @@ impl<'a> Parser<'a> {
             let right = self.addition();
             expr = Box::new(Expr::Binary(Binary {
                 left: expr,
-                right: right,
+                right,
                 operator: operator.unwrap(),
             }));
         }
@@ -401,7 +401,7 @@ impl<'a> Parser<'a> {
 
             expr = Box::new(Expr::Binary(Binary {
                 left: expr,
-                right: right,
+                right,
                 operator: operator.unwrap(),
             }));
         }
@@ -418,7 +418,7 @@ impl<'a> Parser<'a> {
 
             expr = Box::new(Expr::Binary(Binary {
                 left: expr,
-                right: right,
+                right,
                 operator: operator.unwrap(),
             }));
         }
@@ -433,7 +433,7 @@ impl<'a> Parser<'a> {
 
             return Box::new(Expr::Unary(Unary {
                 operator: operator.unwrap(),
-                right: right,
+                right,
             }));
         }
 
