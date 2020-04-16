@@ -476,11 +476,11 @@ impl<'a> Parser<'a> {
     }
 
     pub fn consume(&self, token_type: TokenType, msg: &'static str) {
-        if self.check(token_type) {
-            self.advance();
+        if !self.check(token_type) {
+            panic!(msg);
         }
 
-        panic!(msg);
+        self.advance();
     }
 
     // TODO: this should be a vec. it should be a slice
