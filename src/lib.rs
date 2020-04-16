@@ -298,12 +298,6 @@ pub enum Expr<'a> {
     Unary(Unary<'a>),
 }
 
-impl<'a> Expr<'a> {
-    pub fn print(expr: &Expr) {
-        print!("{:?}", expr);
-    }
-}
-
 /// TODO: Expr specializations should own the operators
 #[derive(Debug, PartialEq)]
 pub struct Binary<'a> {
