@@ -3,6 +3,7 @@
 #![feature(bool_to_option)]
 use std::cell::Cell;
 use std::iter::Peekable;
+use std::mem::discriminant;
 use std::str::Chars;
 
 #[derive(Debug, PartialEq)]
@@ -463,22 +464,8 @@ impl<'a> Parser<'a> {
             return false;
         }
 
-        self.peek().map_or(false, move |t| match t.token_type {
-            TokenType::String(_) => {
-                if let TokenType::String(_) = token_type {
-                    true
-                } else {
-                    false
-                }
-            }
-            TokenType::Number(_) => {
-                if let TokenType::Number(_) = token_type {
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => t.token_type == token_type,
+        self.peek().map_or(false, move |t| {
+            discriminant(&t.token_type) == discriminant(&token_type)
         })
     }
 
