@@ -292,18 +292,10 @@ impl<'a> Scanner<'a> {
 /// - Uses the visitor pattern to dispatch the correct method for each type.
 #[derive(Debug, PartialEq)]
 pub enum Expr<'a> {
-    Binary(Binary<'a>),
+    Binary(Box<Expr<'a>>, &'a Token, Box<Expr<'a>>),
     Grouping(Box<Expr<'a>>),
     Literal(Object),
-    Unary(Unary<'a>),
-}
-
-/// TODO: Expr specializations should own the operators
-#[derive(Debug, PartialEq)]
-pub struct Binary<'a> {
-    left: Box<Expr<'a>>,
-    right: Box<Expr<'a>>,
-    operator: &'a Token,
+    Unary(&'a Token, Box<Expr<'a>>),
 }
 
 /// Emulate Java's object type for literals
@@ -313,12 +305,6 @@ pub enum Object {
     Nil,
     Number(f64),
     String(String),
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Unary<'a> {
-    operator: &'a Token,
-    right: Box<Expr<'a>>,
 }
 
 /// `Parser` is **not** thread safe. Internally, `Parser` uses interior
@@ -356,11 +342,7 @@ impl<'a> Parser<'a> {
             let operator = self.previous();
             let right = self.comparison();
 
-            expr = Box::new(Expr::Binary(Binary {
-                left: expr,
-                right,
-                operator: operator.unwrap(),
-            }));
+            expr = Box::new(Expr::Binary(expr, operator.unwrap(), right));
         }
 
         expr
@@ -377,11 +359,7 @@ impl<'a> Parser<'a> {
         ]) {
             let operator = self.previous();
             let right = self.addition();
-            expr = Box::new(Expr::Binary(Binary {
-                left: expr,
-                right,
-                operator: operator.unwrap(),
-            }));
+            expr = Box::new(Expr::Binary(expr, operator.unwrap(), right));
         }
 
         expr
@@ -394,11 +372,7 @@ impl<'a> Parser<'a> {
             let operator = self.previous();
             let right = self.multiplication();
 
-            expr = Box::new(Expr::Binary(Binary {
-                left: expr,
-                right,
-                operator: operator.unwrap(),
-            }));
+            expr = Box::new(Expr::Binary(expr, operator.unwrap(), right));
         }
 
         expr
@@ -411,11 +385,7 @@ impl<'a> Parser<'a> {
             let operator = self.previous();
             let right = self.unary();
 
-            expr = Box::new(Expr::Binary(Binary {
-                left: expr,
-                right,
-                operator: operator.unwrap(),
-            }));
+            expr = Box::new(Expr::Binary(expr, operator.unwrap(), right));
         }
 
         expr
@@ -426,10 +396,7 @@ impl<'a> Parser<'a> {
             let operator = self.previous();
             let right = self.unary();
 
-            return Box::new(Expr::Unary(Unary {
-                operator: operator.unwrap(),
-                right,
-            }));
+            return Box::new(Expr::Unary(operator.unwrap(), right));
         }
 
         self.primary()
@@ -832,10 +799,10 @@ mod tests {
         let mut scanner = Scanner::new("-1");
         let parser = Parser::new(scanner.scan_tokens());
         assert_eq!(
-            Expr::Unary(Unary {
-                operator: &Token::new(TokenType::Minus, "-".to_owned(), 1),
-                right: Box::new(Expr::Literal(Object::Number(1 as f64)))
-            }),
+            Expr::Unary(
+                &Token::new(TokenType::Minus, "-".to_owned(), 1),
+                Box::new(Expr::Literal(Object::Number(1 as f64)))
+            ),
             *parser.parse()
         );
     }
@@ -845,11 +812,11 @@ mod tests {
         let mut scanner = Scanner::new("1 + 2");
         let parser = Parser::new(scanner.scan_tokens());
         assert_eq!(
-            Expr::Binary(Binary {
-                left: Box::new(Expr::Literal(Object::Number(1 as f64))),
-                operator: &Token::new(TokenType::Plus, "+".to_owned(), 1),
-                right: Box::new(Expr::Literal(Object::Number(2 as f64)))
-            }),
+            Expr::Binary(
+                Box::new(Expr::Literal(Object::Number(1 as f64))),
+                &Token::new(TokenType::Plus, "+".to_owned(), 1),
+                Box::new(Expr::Literal(Object::Number(2 as f64)))
+            ),
             *parser.parse()
         );
     }
@@ -870,18 +837,18 @@ mod tests {
         let parser = Parser::new(scanner.scan_tokens());
 
         let plus = Token::new(TokenType::Plus, "+".to_owned(), 1);
-        let add_expr = Expr::Grouping(Box::new(Expr::Binary(Binary {
-            left: Box::new(Expr::Literal(Object::Number(1 as f64))),
-            operator: &plus,
-            right: Box::new(Expr::Literal(Object::Number(2 as f64))),
-        })));
+        let add_expr = Expr::Grouping(Box::new(Expr::Binary(
+            Box::new(Expr::Literal(Object::Number(1 as f64))),
+            &plus,
+            Box::new(Expr::Literal(Object::Number(2 as f64))),
+        )));
 
         let star = Token::new(TokenType::Star, "*".to_owned(), 1);
-        let expected = Expr::Binary(Binary {
-            left: Box::new(add_expr),
-            operator: &star,
-            right: Box::new(Expr::Literal(Object::Number(3 as f64))),
-        });
+        let expected = Expr::Binary(
+            Box::new(add_expr),
+            &star,
+            Box::new(Expr::Literal(Object::Number(3 as f64))),
+        );
 
         assert_eq!(expected, *parser.parse());
     }
@@ -892,39 +859,35 @@ mod tests {
         let parser = Parser::new(scanner.scan_tokens());
 
         let plus = Token::new(TokenType::Plus, "+".to_owned(), 1);
-        let add_expr = Expr::Grouping(Box::new(Expr::Binary(Binary {
-            left: Box::new(Expr::Literal(Object::Number(1 as f64))),
-            operator: &plus,
-            right: Box::new(Expr::Literal(Object::Number(2 as f64))),
-        })));
+        let add_expr = Expr::Grouping(Box::new(Expr::Binary(
+            Box::new(Expr::Literal(Object::Number(1 as f64))),
+            &plus,
+            Box::new(Expr::Literal(Object::Number(2 as f64))),
+        )));
 
         let star = Token::new(TokenType::Star, "*".to_owned(), 1);
-        let star_expr = Expr::Binary(Binary {
-            left: Box::new(add_expr),
-            operator: &star,
-            right: Box::new(Expr::Literal(Object::Number(3 as f64))),
-        });
+        let star_expr = Expr::Binary(
+            Box::new(add_expr),
+            &star,
+            Box::new(Expr::Literal(Object::Number(3 as f64))),
+        );
 
         let minus = Token::new(TokenType::Minus, "-".to_owned(), 1);
-        let sub_expr = Expr::Grouping(Box::new(Expr::Binary(Binary {
-            left: Box::new(Expr::Literal(Object::Number(4 as f64))),
-            operator: &minus,
-            right: Box::new(Expr::Literal(Object::Number(5 as f64))),
-        })));
+        let sub_expr = Expr::Grouping(Box::new(Expr::Binary(
+            Box::new(Expr::Literal(Object::Number(4 as f64))),
+            &minus,
+            Box::new(Expr::Literal(Object::Number(5 as f64))),
+        )));
 
         let slash = Token::new(TokenType::Slash, "/".to_owned(), 1);
-        let slash_expr = Expr::Binary(Binary {
-            left: Box::new(sub_expr),
-            operator: &slash,
-            right: Box::new(Expr::Literal(Object::Number(6 as f64))),
-        });
+        let slash_expr = Expr::Binary(
+            Box::new(sub_expr),
+            &slash,
+            Box::new(Expr::Literal(Object::Number(6 as f64))),
+        );
 
         let greater = Token::new(TokenType::Greater, ">".to_owned(), 1);
-        let expected = Expr::Binary(Binary {
-            left: Box::new(star_expr),
-            operator: &greater,
-            right: Box::new(slash_expr),
-        });
+        let expected = Expr::Binary(Box::new(star_expr), &greater, Box::new(slash_expr));
 
         assert_eq!(expected, *parser.parse());
     }
