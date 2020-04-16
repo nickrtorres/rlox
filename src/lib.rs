@@ -290,32 +290,30 @@ impl<'a> Scanner<'a> {
 /// - Defines an abstract class: Expr
 /// - Creates a subclass for each variant (i.e. Binary, Grouping, Literal, Unary)
 /// - Uses the visitor pattern to dispatch the correct method for each type.
-///
-/// we'll trade in abstract classes and the visitor pattern for traits and generics.
-pub enum Expression<T, U> {
-    Binary(Binary<T, U>),
-    Grouping(Grouping<T>),
-    Literal(Literal<T>),
-    Unary(Unary<T>),
+pub enum Expr {
+    Binary(Binary),
+    Grouping(Grouping),
+    Literal(Literal),
+    Unary(Unary),
 }
 
-pub struct Binary<T, U> {
-    left: T,
-    right: U,
+pub struct Binary {
+    left: Box<Expr>,
+    right: Box<Expr>,
     operator: Token,
 }
 
-pub struct Grouping<T> {
-    expression: T,
+pub struct Grouping {
+    expression: Box<Expr>,
 }
 
-pub struct Literal<T> {
-    value: Option<T>,
+pub struct Literal {
+    value: Box<Option<Expr>>,
 }
 
-pub struct Unary<T> {
+pub struct Unary {
     operator: Token,
-    right: T,
+    right: Box<Expr>,
 }
 
 /// `Parser` is **not** thread safe. Internally, `Parser` uses interior
