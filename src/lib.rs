@@ -290,7 +290,7 @@ impl<'a> Scanner<'a> {
 /// - Defines an abstract class: Expr
 /// - Creates a subclass for each variant (i.e. Binary, Grouping, Literal, Unary)
 /// - Uses the visitor pattern to dispatch the correct method for each type.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Expr<'a> {
     Binary(Binary<'a>),
     Grouping(Box<Expr<'a>>),
@@ -305,7 +305,7 @@ impl<'a> Expr<'a> {
 }
 
 /// TODO: Expr specializations should own the operators
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Binary<'a> {
     left: Box<Expr<'a>>,
     right: Box<Expr<'a>>,
@@ -313,7 +313,7 @@ pub struct Binary<'a> {
 }
 
 /// Emulate Java's object type for literals
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Object {
     Bool(bool),
     Nil,
@@ -321,7 +321,7 @@ pub enum Object {
     String(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Unary<'a> {
     operator: &'a Token,
     right: Box<Expr<'a>>,
@@ -809,5 +809,85 @@ mod tests {
             Some(&Token::new(TokenType::Semicolon, String::from(";"), 1)),
             parser.advance()
         );
+    }
+
+    #[test]
+    fn it_can_parse_a_float() {
+        let mut scanner = Scanner::new("1");
+        let parser = Parser::new(scanner.scan_tokens());
+        assert_eq!(Expr::Literal(Object::Number(1 as f64)), *parser.parse());
+    }
+
+    #[test]
+    fn it_can_parse_a_bool() {
+        let mut scanner = Scanner::new("true");
+        let parser = Parser::new(scanner.scan_tokens());
+        assert_eq!(Expr::Literal(Object::Bool(true)), *parser.parse());
+    }
+
+    #[test]
+    fn it_can_parse_nil() {
+        let mut scanner = Scanner::new("nil");
+        let parser = Parser::new(scanner.scan_tokens());
+        assert_eq!(Expr::Literal(Object::Nil), *parser.parse());
+    }
+
+    #[test]
+    fn it_can_parse_a_unary_expression() {
+        let mut scanner = Scanner::new("-1");
+        let parser = Parser::new(scanner.scan_tokens());
+        assert_eq!(
+            Expr::Unary(Unary {
+                operator: &Token::new(TokenType::Minus, "-".to_owned(), 1),
+                right: Box::new(Expr::Literal(Object::Number(1 as f64)))
+            }),
+            *parser.parse()
+        );
+    }
+
+    #[test]
+    fn it_can_parse_a_binary_expression() {
+        let mut scanner = Scanner::new("1 + 2");
+        let parser = Parser::new(scanner.scan_tokens());
+        assert_eq!(
+            Expr::Binary(Binary {
+                left: Box::new(Expr::Literal(Object::Number(1 as f64))),
+                operator: &Token::new(TokenType::Plus, "+".to_owned(), 1),
+                right: Box::new(Expr::Literal(Object::Number(2 as f64)))
+            }),
+            *parser.parse()
+        );
+    }
+
+    #[test]
+    fn it_can_parse_a_grouping_expression() {
+        let mut scanner = Scanner::new("(1)");
+        let parser = Parser::new(scanner.scan_tokens());
+        assert_eq!(
+            Expr::Grouping(Box::new(Expr::Literal(Object::Number(1 as f64)))),
+            *parser.parse()
+        );
+    }
+
+    #[test]
+    fn it_can_parse_a_compound_expression() {
+        let mut scanner = Scanner::new("(1 + 2) * 3");
+        let parser = Parser::new(scanner.scan_tokens());
+
+        let plus = Token::new(TokenType::Plus, "+".to_owned(), 1);
+        let add_expr = Expr::Grouping(Box::new(Expr::Binary(Binary {
+            left: Box::new(Expr::Literal(Object::Number(1 as f64))),
+            operator: &plus,
+            right: Box::new(Expr::Literal(Object::Number(2 as f64))),
+        })));
+
+        let star = Token::new(TokenType::Star, "*".to_owned(), 1);
+        let expected = Expr::Binary(Binary {
+            left: Box::new(add_expr),
+            operator: &star,
+            right: Box::new(Expr::Literal(Object::Number(3 as f64))),
+        });
+
+        assert_eq!(expected, *parser.parse());
     }
 }
