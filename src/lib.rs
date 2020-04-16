@@ -8,7 +8,9 @@ use std::str::Chars;
 
 #[derive(Debug)]
 pub enum RloxError {
-    CatchAll,
+    NoPrevious,
+    UnclosedParenthesis,
+    Unreachable,
     UnsupportedToken,
 }
 
@@ -347,10 +349,10 @@ impl<'a> Parser<'a> {
         let mut expr = self.comparison()?;
 
         while self.match_tokens(vec![TokenType::BangEqual, TokenType::EqualEqual]) {
-            let operator = self.previous();
+            let operator = self.previous()?;
             let right = self.comparison()?;
 
-            expr = Box::new(Expr::Binary(expr, operator.unwrap(), right));
+            expr = Box::new(Expr::Binary(expr, operator, right));
         }
 
         Ok(expr)
@@ -365,9 +367,9 @@ impl<'a> Parser<'a> {
             TokenType::Less,
             TokenType::LessEqual,
         ]) {
-            let operator = self.previous();
+            let operator = self.previous()?;
             let right = self.addition()?;
-            expr = Box::new(Expr::Binary(expr, operator.unwrap(), right));
+            expr = Box::new(Expr::Binary(expr, operator, right));
         }
 
         Ok(expr)
@@ -377,10 +379,10 @@ impl<'a> Parser<'a> {
         let mut expr = self.multiplication()?;
 
         while self.match_tokens(vec![TokenType::Minus, TokenType::Plus]) {
-            let operator = self.previous();
+            let operator = self.previous()?;
             let right = self.multiplication()?;
 
-            expr = Box::new(Expr::Binary(expr, operator.unwrap(), right));
+            expr = Box::new(Expr::Binary(expr, operator, right));
         }
 
         Ok(expr)
@@ -390,10 +392,10 @@ impl<'a> Parser<'a> {
         let mut expr = self.unary()?;
 
         while self.match_tokens(vec![TokenType::Slash, TokenType::Star]) {
-            let operator = self.previous();
+            let operator = self.previous()?;
             let right = self.unary()?;
 
-            expr = Box::new(Expr::Binary(expr, operator.unwrap(), right));
+            expr = Box::new(Expr::Binary(expr, operator, right));
         }
 
         Ok(expr)
@@ -401,10 +403,10 @@ impl<'a> Parser<'a> {
 
     pub fn unary(&self) -> Result<Box<Expr>, RloxError> {
         if self.match_tokens(vec![TokenType::Bang, TokenType::Minus]) {
-            let operator = self.previous();
+            let operator = self.previous()?;
             let right = self.unary()?;
 
-            return Ok(Box::new(Expr::Unary(operator.unwrap(), right)));
+            return Ok(Box::new(Expr::Unary(operator, right)));
         }
 
         self.primary()
@@ -426,14 +428,14 @@ impl<'a> Parser<'a> {
             TokenType::Number(f64::from(0)),
             TokenType::String(String::new()),
         ]) {
-            match &self.previous().unwrap().token_type {
-                TokenType::Number(n) => return Ok(Box::new(Expr::Literal(Object::Number(*n)))),
-                TokenType::String(s) => {
-                    return Ok(Box::new(Expr::Literal(Object::String(s.to_owned()))))
-                }
-                // TODO: yikes!
-                _ => unreachable!(),
-            }
+            let previous = self.previous()?;
+            let rv = match &previous.token_type {
+                TokenType::Number(n) => Ok(Box::new(Expr::Literal(Object::Number(*n)))),
+                TokenType::String(s) => Ok(Box::new(Expr::Literal(Object::String(s.to_owned())))),
+                _ => Err(RloxError::Unreachable),
+            };
+
+            return rv;
         }
 
         if self.match_tokens(vec![TokenType::LeftParen]) {
@@ -447,7 +449,7 @@ impl<'a> Parser<'a> {
 
     pub fn consume(&self, token_type: TokenType, _msg: &'static str) -> Result<(), RloxError> {
         if !self.check(token_type) {
-            return Err(RloxError::CatchAll);
+            return Err(RloxError::UnclosedParenthesis);
         }
 
         self.advance();
@@ -484,9 +486,11 @@ impl<'a> Parser<'a> {
         self.tokens.get(self.cursor.get())
     }
 
-    pub fn previous(&self) -> Option<&Token> {
+    pub fn previous(&self) -> Result<&Token, RloxError> {
         debug_assert!(self.cursor.get() > 0);
-        self.tokens.get(self.cursor.get() - 1)
+        self.tokens
+            .get(self.cursor.get() - 1)
+            .ok_or(RloxError::NoPrevious)
     }
 
     pub fn advance(&self) -> Option<&Token> {
@@ -495,7 +499,7 @@ impl<'a> Parser<'a> {
             self.cursor.replace(old + 1);
         }
 
-        self.previous()
+        self.previous().ok()
     }
 }
 
