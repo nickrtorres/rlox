@@ -6,6 +6,12 @@ use std::iter::Peekable;
 use std::mem::discriminant;
 use std::str::Chars;
 
+#[derive(Debug)]
+pub enum RloxError {
+    CatchAll,
+    UnsupportedToken,
+}
+
 #[derive(Debug, PartialEq)]
 pub enum TokenType {
     /// Single-character tokens
@@ -329,29 +335,29 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse(&self) -> Box<Expr> {
+    pub fn parse(&self) -> Result<Box<Expr>, RloxError> {
         self.expression()
     }
 
-    pub fn expression(&self) -> Box<Expr> {
+    pub fn expression(&self) -> Result<Box<Expr>, RloxError> {
         self.equality()
     }
 
-    pub fn equality(&'a self) -> Box<Expr> {
-        let mut expr = self.comparison();
+    pub fn equality(&'a self) -> Result<Box<Expr>, RloxError> {
+        let mut expr = self.comparison()?;
 
         while self.match_tokens(vec![TokenType::BangEqual, TokenType::EqualEqual]) {
             let operator = self.previous();
-            let right = self.comparison();
+            let right = self.comparison()?;
 
             expr = Box::new(Expr::Binary(expr, operator.unwrap(), right));
         }
 
-        expr
+        Ok(expr)
     }
 
-    pub fn comparison(&self) -> Box<Expr> {
-        let mut expr = self.addition();
+    pub fn comparison(&self) -> Result<Box<Expr>, RloxError> {
+        let mut expr = self.addition()?;
 
         while self.match_tokens(vec![
             TokenType::Greater,
@@ -360,70 +366,70 @@ impl<'a> Parser<'a> {
             TokenType::LessEqual,
         ]) {
             let operator = self.previous();
-            let right = self.addition();
+            let right = self.addition()?;
             expr = Box::new(Expr::Binary(expr, operator.unwrap(), right));
         }
 
-        expr
+        Ok(expr)
     }
 
-    pub fn addition(&self) -> Box<Expr> {
-        let mut expr = self.multiplication();
+    pub fn addition(&self) -> Result<Box<Expr>, RloxError> {
+        let mut expr = self.multiplication()?;
 
         while self.match_tokens(vec![TokenType::Minus, TokenType::Plus]) {
             let operator = self.previous();
-            let right = self.multiplication();
+            let right = self.multiplication()?;
 
             expr = Box::new(Expr::Binary(expr, operator.unwrap(), right));
         }
 
-        expr
+        Ok(expr)
     }
 
-    pub fn multiplication(&self) -> Box<Expr> {
-        let mut expr = self.unary();
+    pub fn multiplication(&self) -> Result<Box<Expr>, RloxError> {
+        let mut expr = self.unary()?;
 
         while self.match_tokens(vec![TokenType::Slash, TokenType::Star]) {
             let operator = self.previous();
-            let right = self.unary();
+            let right = self.unary()?;
 
             expr = Box::new(Expr::Binary(expr, operator.unwrap(), right));
         }
 
-        expr
+        Ok(expr)
     }
 
-    pub fn unary(&self) -> Box<Expr> {
+    pub fn unary(&self) -> Result<Box<Expr>, RloxError> {
         if self.match_tokens(vec![TokenType::Bang, TokenType::Minus]) {
             let operator = self.previous();
-            let right = self.unary();
+            let right = self.unary()?;
 
-            return Box::new(Expr::Unary(operator.unwrap(), right));
+            return Ok(Box::new(Expr::Unary(operator.unwrap(), right)));
         }
 
         self.primary()
     }
 
-    pub fn primary(&self) -> Box<Expr> {
+    pub fn primary(&self) -> Result<Box<Expr>, RloxError> {
         if self.match_tokens(vec![TokenType::False]) {
-            return Box::new(Expr::Literal(Object::Bool(false)));
+            return Ok(Box::new(Expr::Literal(Object::Bool(false))));
         }
         if self.match_tokens(vec![TokenType::True]) {
-            return Box::new(Expr::Literal(Object::Bool(true)));
+            return Ok(Box::new(Expr::Literal(Object::Bool(true))));
         }
         if self.match_tokens(vec![TokenType::Nil]) {
-            return Box::new(Expr::Literal(Object::Nil));
+            return Ok(Box::new(Expr::Literal(Object::Nil)));
         }
 
         // TODO: Ahhhhh this is a mess!
         if self.match_tokens(vec![
-            TokenType::Number(0 as f64),
+            TokenType::Number(f64::from(0)),
             TokenType::String(String::new()),
         ]) {
             match &self.previous().unwrap().token_type {
-                TokenType::Number(n) => return Box::new(Expr::Literal(Object::Number(*n))),
+                TokenType::Number(n) => return Ok(Box::new(Expr::Literal(Object::Number(*n)))),
                 TokenType::String(s) => {
-                    return Box::new(Expr::Literal(Object::String(s.to_owned())))
+                    return Ok(Box::new(Expr::Literal(Object::String(s.to_owned()))))
                 }
                 // TODO: yikes!
                 _ => unreachable!(),
@@ -431,20 +437,21 @@ impl<'a> Parser<'a> {
         }
 
         if self.match_tokens(vec![TokenType::LeftParen]) {
-            let expr = self.expression();
-            self.consume(TokenType::RightParen, "Expect ')' after expression.");
-            return Box::new(Expr::Grouping(expr));
+            let expr = self.expression()?;
+            self.consume(TokenType::RightParen, "Expect ')' after expression.")?;
+            return Ok(Box::new(Expr::Grouping(expr)));
         }
 
-        unimplemented!();
+        Err(RloxError::UnsupportedToken)
     }
 
-    pub fn consume(&self, token_type: TokenType, msg: &'static str) {
+    pub fn consume(&self, token_type: TokenType, _msg: &'static str) -> Result<(), RloxError> {
         if !self.check(token_type) {
-            panic!(msg);
+            return Err(RloxError::CatchAll);
         }
 
         self.advance();
+        Ok(())
     }
 
     // TODO: this should not be a vec. it should be a slice or an iterator
@@ -765,21 +772,24 @@ mod tests {
     fn it_can_parse_a_float() {
         let mut scanner = Scanner::new("1");
         let parser = Parser::new(scanner.scan_tokens());
-        assert_eq!(Expr::Literal(Object::Number(1 as f64)), *parser.parse());
+        assert_eq!(
+            Expr::Literal(Object::Number(1 as f64)),
+            *parser.parse().unwrap()
+        );
     }
 
     #[test]
     fn it_can_parse_a_bool() {
         let mut scanner = Scanner::new("true");
         let parser = Parser::new(scanner.scan_tokens());
-        assert_eq!(Expr::Literal(Object::Bool(true)), *parser.parse());
+        assert_eq!(Expr::Literal(Object::Bool(true)), *parser.parse().unwrap());
     }
 
     #[test]
     fn it_can_parse_nil() {
         let mut scanner = Scanner::new("nil");
         let parser = Parser::new(scanner.scan_tokens());
-        assert_eq!(Expr::Literal(Object::Nil), *parser.parse());
+        assert_eq!(Expr::Literal(Object::Nil), *parser.parse().unwrap());
     }
 
     #[test]
@@ -791,7 +801,7 @@ mod tests {
                 &Token::new(TokenType::Minus, "-".to_owned(), 1),
                 Box::new(Expr::Literal(Object::Number(1 as f64)))
             ),
-            *parser.parse()
+            *parser.parse().unwrap()
         );
     }
 
@@ -805,7 +815,7 @@ mod tests {
                 &Token::new(TokenType::Plus, "+".to_owned(), 1),
                 Box::new(Expr::Literal(Object::Number(2 as f64)))
             ),
-            *parser.parse()
+            *parser.parse().unwrap()
         );
     }
 
@@ -815,7 +825,7 @@ mod tests {
         let parser = Parser::new(scanner.scan_tokens());
         assert_eq!(
             Expr::Grouping(Box::new(Expr::Literal(Object::Number(1 as f64)))),
-            *parser.parse()
+            *parser.parse().unwrap()
         );
     }
 
@@ -838,7 +848,7 @@ mod tests {
             Box::new(Expr::Literal(Object::Number(3 as f64))),
         );
 
-        assert_eq!(expected, *parser.parse());
+        assert_eq!(expected, *parser.parse().unwrap());
     }
 
     #[test]
@@ -877,6 +887,6 @@ mod tests {
         let greater = Token::new(TokenType::Greater, ">".to_owned(), 1);
         let expected = Expr::Binary(Box::new(star_expr), &greater, Box::new(slash_expr));
 
-        assert_eq!(expected, *parser.parse());
+        assert_eq!(expected, *parser.parse().unwrap());
     }
 }
