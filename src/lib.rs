@@ -290,30 +290,41 @@ impl<'a> Scanner<'a> {
 /// - Defines an abstract class: Expr
 /// - Creates a subclass for each variant (i.e. Binary, Grouping, Literal, Unary)
 /// - Uses the visitor pattern to dispatch the correct method for each type.
-pub enum Expr {
-    Binary(Binary),
-    Grouping(Grouping),
-    Literal(Literal),
-    Unary(Unary),
+#[derive(Debug)]
+pub enum Expr<'a> {
+    Binary(Binary<'a>),
+    Grouping(Box<Expr<'a>>),
+    Literal(Object),
+    Unary(Unary<'a>),
 }
 
-pub struct Binary {
-    left: Box<Expr>,
-    right: Box<Expr>,
-    operator: Token,
+impl<'a> Expr<'a> {
+    pub fn print(expr: &Expr) {
+        print!("{:?}", expr);
+    }
 }
 
-pub struct Grouping {
-    expression: Box<Expr>,
+/// TODO: Expr specializations should own the operators
+#[derive(Debug)]
+pub struct Binary<'a> {
+    left: Box<Expr<'a>>,
+    right: Box<Expr<'a>>,
+    operator: &'a Token,
 }
 
-pub struct Literal {
-    value: Box<Option<Expr>>,
+/// Emulate Java's object type for literals
+#[derive(Debug)]
+pub enum Object {
+    Bool(bool),
+    Nil,
+    Number(f64),
+    String(String),
 }
 
-pub struct Unary {
-    operator: Token,
-    right: Box<Expr>,
+#[derive(Debug)]
+pub struct Unary<'a> {
+    operator: &'a Token,
+    right: Box<Expr<'a>>,
 }
 
 /// `Parser` is **not** thread safe. Internally, `Parser` uses interior
@@ -336,6 +347,143 @@ impl<'a> Parser<'a> {
         }
     }
 
+    pub fn parse(&self) -> Box<Expr> {
+        self.expression()
+    }
+
+    pub fn expression(&self) -> Box<Expr> {
+        self.equality()
+    }
+
+    pub fn equality(&'a self) -> Box<Expr> {
+        let mut expr = self.comparison();
+
+        while self.match_tokens(vec![TokenType::BangEqual, TokenType::EqualEqual]) {
+            let mut operator = self.previous();
+            let right = self.comparison();
+
+            expr = Box::new(Expr::Binary(Binary {
+                left: expr,
+                right: right,
+                operator: operator.unwrap(),
+            }));
+        }
+
+        expr
+    }
+
+    pub fn comparison(&self) -> Box<Expr> {
+        let mut expr = self.addition();
+
+        while self.match_tokens(vec![
+            TokenType::GreaterEqual,
+            TokenType::Less,
+            TokenType::LessEqual,
+        ]) {
+            let operator = self.previous();
+            let right = self.addition();
+            expr = Box::new(Expr::Binary(Binary {
+                left: expr,
+                right: right,
+                operator: operator.unwrap(),
+            }));
+        }
+
+        expr
+    }
+
+    pub fn addition(&self) -> Box<Expr> {
+        let mut expr = self.multiplication();
+
+        while self.match_tokens(vec![TokenType::Minus, TokenType::Plus]) {
+            let operator = self.previous();
+            let right = self.multiplication();
+
+            expr = Box::new(Expr::Binary(Binary {
+                left: expr,
+                right: right,
+                operator: operator.unwrap(),
+            }));
+        }
+
+        expr
+    }
+
+    pub fn multiplication(&self) -> Box<Expr> {
+        let mut expr = self.unary();
+
+        while self.match_tokens(vec![TokenType::Slash, TokenType::Star]) {
+            let operator = self.previous();
+            let right = self.unary();
+
+            expr = Box::new(Expr::Binary(Binary {
+                left: expr,
+                right: right,
+                operator: operator.unwrap(),
+            }));
+        }
+
+        expr
+    }
+
+    pub fn unary(&self) -> Box<Expr> {
+        if self.match_tokens(vec![TokenType::Bang, TokenType::Minus]) {
+            let operator = self.previous();
+            let right = self.unary();
+
+            return Box::new(Expr::Unary(Unary {
+                operator: operator.unwrap(),
+                right: right,
+            }));
+        }
+
+        self.primary()
+    }
+
+    pub fn primary(&self) -> Box<Expr> {
+        if self.match_tokens(vec![TokenType::False]) {
+            return Box::new(Expr::Literal(Object::Bool(false)));
+        }
+        if self.match_tokens(vec![TokenType::True]) {
+            return Box::new(Expr::Literal(Object::Bool(true)));
+        }
+        if self.match_tokens(vec![TokenType::Nil]) {
+            return Box::new(Expr::Literal(Object::Nil));
+        }
+
+        // TODO: Ahhhhh this is a mess!
+        if self.match_tokens(vec![
+            TokenType::Number(0 as f64),
+            TokenType::String(String::new()),
+        ]) {
+            match &self.previous().unwrap().token_type {
+                TokenType::Number(n) => return Box::new(Expr::Literal(Object::Number(*n))),
+                TokenType::String(s) => {
+                    return Box::new(Expr::Literal(Object::String(s.to_owned())))
+                }
+                // TODO: yikes!
+                _ => unreachable!(),
+            }
+        }
+
+        if self.match_tokens(vec![TokenType::LeftParen]) {
+            let expr = self.expression();
+            self.consume(TokenType::RightParen, "Expect ')' after expression.");
+            return Box::new(Expr::Grouping(expr));
+        }
+
+        Box::new(Expr::Literal(Object::Nil))
+    }
+
+    pub fn consume(&self, token_type: TokenType, msg: &'static str) {
+        if self.check(token_type) {
+            self.advance();
+        }
+
+        panic!(msg);
+    }
+
+    // TODO: this should be a vec. it should be a slice
     pub fn match_tokens(&self, token_types: Vec<TokenType>) -> bool {
         for token_type in token_types {
             if self.check(token_type) {

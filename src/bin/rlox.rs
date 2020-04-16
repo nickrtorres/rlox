@@ -1,5 +1,5 @@
 extern crate rlox;
-use rlox::Scanner;
+use rlox::{Parser, Scanner};
 
 use program::perror;
 use std::env;
@@ -15,10 +15,9 @@ fn run<T: BufRead>(b: &mut T) -> Result<()> {
     let mut buf = String::with_capacity(1024);
     let _ = b.read_line(&mut buf)?;
     let mut scanner = Scanner::new(&buf);
-
-    for token in scanner.scan_tokens() {
-        writeln!(io::stdout(), "{:?}", token)?;
-    }
+    let parser = Parser::new(scanner.scan_tokens());
+    let expr = parser.parse();
+    println!("{:?}", expr);
 
     Ok(())
 }
