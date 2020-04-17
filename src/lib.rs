@@ -27,6 +27,15 @@ pub enum RloxError {
     UnimplementedToken,
     /// The operand types do not match for the given binary expression. The
     /// tuple elements are in RPN i.e. operator, left, right
+    ///
+    /// TODO (*maybe*) mismatched operands can be specialized even further:
+    /// ```notrust
+    /// +--- MismatchedOperands(TokenType, Object, Object)
+    /// |    - Ex:"foo" + 1
+    /// |
+    /// +--- InvalidOperands(TokenType, Object, Object)
+    ///      - Ex: true / nil
+    /// ```
     MismatchedOperands(TokenType, Object, Object),
 }
 
