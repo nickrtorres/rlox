@@ -992,7 +992,7 @@ mod tests {
         let mut scanner = Scanner::new("-1");
         let parser = Parser::new(scanner.scan_tokens());
         let expr = parser.parse().unwrap();
-        assert_eq!(Object::Number(f64::from(-1)), expr.interpret());
+        assert_eq!(Ok(Object::Number(f64::from(-1))), expr.interpret());
     }
 
     #[test]
@@ -1000,7 +1000,7 @@ mod tests {
         let mut scanner = Scanner::new("true");
         let parser = Parser::new(scanner.scan_tokens());
         let expr = parser.parse().unwrap();
-        assert_eq!(Object::Bool(true), expr.interpret());
+        assert_eq!(Ok(Object::Bool(true)), expr.interpret());
     }
 
     #[test]
@@ -1008,7 +1008,7 @@ mod tests {
         let mut scanner = Scanner::new("nil");
         let parser = Parser::new(scanner.scan_tokens());
         let expr = parser.parse().unwrap();
-        assert_eq!(Object::Nil, expr.interpret());
+        assert_eq!(Ok(Object::Nil), expr.interpret());
     }
 
     #[test]
@@ -1016,7 +1016,7 @@ mod tests {
         let mut scanner = Scanner::new("6 * 7");
         let parser = Parser::new(scanner.scan_tokens());
         let expr = parser.parse().unwrap();
-        assert_eq!(Object::Number(f64::from(42)), expr.interpret());
+        assert_eq!(Ok(Object::Number(f64::from(42))), expr.interpret());
     }
 
     #[test]
@@ -1024,7 +1024,7 @@ mod tests {
         let mut scanner = Scanner::new("8 / 4");
         let parser = Parser::new(scanner.scan_tokens());
         let expr = parser.parse().unwrap();
-        assert_eq!(Object::Number(f64::from(8 / 4)), expr.interpret());
+        assert_eq!(Ok(Object::Number(f64::from(8 / 4))), expr.interpret());
     }
 
     #[test]
@@ -1032,7 +1032,7 @@ mod tests {
         let mut scanner = Scanner::new("2 * 3 - 4 != 5 * 6 - 7");
         let parser = Parser::new(scanner.scan_tokens());
         let expr = parser.parse().unwrap();
-        assert_eq!(Object::Bool(true), expr.interpret());
+        assert_eq!(Ok(Object::Bool(true)), expr.interpret());
     }
 
     #[test]
@@ -1040,7 +1040,7 @@ mod tests {
         let mut scanner = Scanner::new("(4 + 4) == (2 * 2 * 2)");
         let parser = Parser::new(scanner.scan_tokens());
         let expr = parser.parse().unwrap();
-        assert_eq!(Object::Bool(true), expr.interpret());
+        assert_eq!(Ok(Object::Bool(true)), expr.interpret());
     }
 
     #[test]
@@ -1048,6 +1048,6 @@ mod tests {
         let mut scanner = Scanner::new("\"foo\" + \"bar\"");
         let parser = Parser::new(scanner.scan_tokens());
         let expr = parser.parse().unwrap();
-        assert_eq!(Object::String(String::from("foobar")), expr.interpret());
+        assert_eq!(Ok(Object::String(String::from("foobar"))), expr.interpret());
     }
 }
