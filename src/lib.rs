@@ -142,6 +142,7 @@ impl Token {
     }
 }
 
+// TODO remove this!
 impl ToString for Token {
     fn to_string(&self) -> String {
         format!("{} {} ", stringify!(self.token_type), self.lexeme,)
