@@ -378,7 +378,7 @@ impl<'a> Expr<'a> {
                         _ => Err(RloxError::MismatchedOperands(TokenType::Slash, left, right)),
                     },
                     TokenType::Star => match (&left, &right) {
-                        (Object::Number(l), Object::Number(r)) => return Ok(Object::Number(l * r)),
+                        (Object::Number(l), Object::Number(r)) => Ok(Object::Number(l * r)),
                         _ => Err(RloxError::MismatchedOperands(TokenType::Star, left, right)),
                     },
                     TokenType::Plus => match (&left, &right) {
@@ -411,7 +411,7 @@ impl<'a> Expr<'a> {
                     }
                 }
 
-                return Err(RloxError::Unreachable);
+                Err(RloxError::Unreachable)
             }
             Expr::Literal(obj) => Ok(obj),
             Expr::Grouping(group) => group.interpret(),
