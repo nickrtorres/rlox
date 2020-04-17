@@ -371,9 +371,14 @@ impl<'a> Expr<'a> {
                         _ => Err(RloxError::MismatchedOperands(TokenType::Star, left, right)),
                     },
                     // TODO use mismatched operands error instead of unreachable
-                    TokenType::Plus => match (left, right) {
-                        (Object::Number(l), Object::Number(r)) => Ok(Object::Number(l + r)),
-                        (Object::String(l), Object::String(r)) => Ok(Object::String(l + &r)),
+                    TokenType::Plus => match (&left, &right) {
+                        (Object::Number(l), Object::Number(r)) => Ok(Object::Number(*l + *r)),
+                        (Object::String(l), Object::String(r)) => {
+                            let mut buffer = String::with_capacity(l.capacity() + r.capacity());
+                            buffer.push_str(l);
+                            buffer.push_str(r);
+                            Ok(Object::String(buffer))
+                        }
                         _ => Err(RloxError::Unreachable),
                     },
                     TokenType::BangEqual => Ok(Object::Bool(left != right)),
