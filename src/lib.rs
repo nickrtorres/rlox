@@ -379,7 +379,7 @@ impl<'a> Expr<'a> {
                             buffer.push_str(r);
                             Ok(Object::String(buffer))
                         }
-                        _ => Err(RloxError::Unreachable),
+                        _ => Err(RloxError::MismatchedOperands(TokenType::Plus, left, right)),
                     },
                     TokenType::BangEqual => Ok(Object::Bool(left != right)),
                     TokenType::EqualEqual => Ok(Object::Bool(left == right)),
@@ -1066,15 +1066,30 @@ mod tests {
     }
 
     #[test]
+    fn it_identifies_mismatched_operands_plus() {
+        let mut scanner = Scanner::new("1 + \"foo\"");
+        let parser = Parser::new(scanner.scan_tokens());
+        let expr = parser.parse().unwrap();
+        assert_eq!(
+            Err(RloxError::MismatchedOperands(
+                TokenType::Plus,
+                Object::Number(f64::from(1)),
+                Object::String("foo".to_owned())
+            )),
+            expr.interpret()
+        );
+    }
+
+    #[test]
     fn it_identifies_mismatched_operands_minus() {
-        let mut scanner = Scanner::new("1 - \"foo\"");
+        let mut scanner = Scanner::new("1 - \"bar\"");
         let parser = Parser::new(scanner.scan_tokens());
         let expr = parser.parse().unwrap();
         assert_eq!(
             Err(RloxError::MismatchedOperands(
                 TokenType::Minus,
                 Object::Number(f64::from(1)),
-                Object::String("foo".to_owned())
+                Object::String("bar".to_owned())
             )),
             expr.interpret()
         );
