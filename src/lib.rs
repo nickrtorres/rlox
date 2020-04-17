@@ -1050,4 +1050,49 @@ mod tests {
         let expr = parser.parse().unwrap();
         assert_eq!(Ok(Object::String(String::from("foobar"))), expr.interpret());
     }
+
+    #[test]
+    fn it_identifies_mismatched_operands_minus() {
+        let mut scanner = Scanner::new("1 - \"foo\"");
+        let parser = Parser::new(scanner.scan_tokens());
+        let expr = parser.parse().unwrap();
+        assert_eq!(
+            Err(RloxError::MismatchedOperands(
+                TokenType::Minus,
+                Object::Number(f64::from(1)),
+                Object::String("foo".to_owned())
+            )),
+            expr.interpret()
+        );
+    }
+
+    #[test]
+    fn it_identifies_mismatched_operands_star() {
+        let mut scanner = Scanner::new("true * 1");
+        let parser = Parser::new(scanner.scan_tokens());
+        let expr = parser.parse().unwrap();
+        assert_eq!(
+            Err(RloxError::MismatchedOperands(
+                TokenType::Star,
+                Object::Bool(true),
+                Object::Number(f64::from(1)),
+            )),
+            expr.interpret()
+        );
+    }
+
+    #[test]
+    fn it_identifies_mismatched_operands_slash() {
+        let mut scanner = Scanner::new("1 / nil");
+        let parser = Parser::new(scanner.scan_tokens());
+        let expr = parser.parse().unwrap();
+        assert_eq!(
+            Err(RloxError::MismatchedOperands(
+                TokenType::Slash,
+                Object::Number(f64::from(1)),
+                Object::Nil
+            )),
+            expr.interpret()
+        );
+    }
 }
