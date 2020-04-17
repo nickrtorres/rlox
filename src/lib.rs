@@ -350,61 +350,26 @@ impl<'a> Expr<'a> {
 
                 match token.token_type {
                     TokenType::Minus => match (&left, &right) {
-                        (Object::Number(l), Object::Number(r)) => return Ok(Object::Number(l - r)),
-                        (Object::Number(_), _) => {
-                            return Err(RloxError::MismatchedOperands(
-                                TokenType::Minus,
-                                left,
-                                right,
-                            ))
-                        }
-                        (_, Object::Number(_)) => {
-                            return Err(RloxError::MismatchedOperands(
-                                TokenType::Minus,
-                                left,
-                                right,
-                            ))
-                        }
-                        (_, _) => return Err(RloxError::Unreachable),
+                        (Object::Number(l), Object::Number(r)) => Ok(Object::Number(l - r)),
+                        (_, _) => Err(RloxError::MismatchedOperands(TokenType::Minus, left, right)),
                     },
                     TokenType::Slash => match (&left, &right) {
-                        (Object::Number(l), Object::Number(r)) => return Ok(Object::Number(l / r)),
-                        (Object::Number(_), _) => {
-                            return Err(RloxError::MismatchedOperands(
-                                TokenType::Slash,
-                                left,
-                                right,
-                            ))
-                        }
-                        (_, Object::Number(_)) => {
-                            return Err(RloxError::MismatchedOperands(
-                                TokenType::Slash,
-                                left,
-                                right,
-                            ))
-                        }
-                        (_, _) => return Err(RloxError::Unreachable),
+                        (Object::Number(l), Object::Number(r)) => Ok(Object::Number(l / r)),
+                        (_, _) => Err(RloxError::MismatchedOperands(TokenType::Slash, left, right)),
                     },
                     TokenType::Star => match (&left, &right) {
                         (Object::Number(l), Object::Number(r)) => return Ok(Object::Number(l * r)),
-                        (Object::Number(_), _) => {
-                            return Err(RloxError::MismatchedOperands(TokenType::Star, left, right))
-                        }
-                        (_, Object::Number(_)) => {
-                            return Err(RloxError::MismatchedOperands(TokenType::Star, left, right))
-                        }
-                        (_, _) => return Err(RloxError::Unreachable),
+                        (_, _) => Err(RloxError::MismatchedOperands(TokenType::Star, left, right)),
                     },
+                    // TODO use mismatched operands error instead of unreachable
                     TokenType::Plus => match (left, right) {
-                        (Object::Number(l), Object::Number(r)) => return Ok(Object::Number(l + r)),
-                        (Object::String(l), Object::String(r)) => {
-                            return Ok(Object::String(l + &r))
-                        }
+                        (Object::Number(l), Object::Number(r)) => Ok(Object::Number(l + r)),
+                        (Object::String(l), Object::String(r)) => Ok(Object::String(l + &r)),
                         (_, _) => Err(RloxError::Unreachable),
                     },
-                    TokenType::BangEqual => return Ok(Object::Bool(left != right)),
-                    TokenType::EqualEqual => return Ok(Object::Bool(left == right)),
-                    _ => return Err(RloxError::Unreachable),
+                    TokenType::BangEqual => Ok(Object::Bool(left != right)),
+                    TokenType::EqualEqual => Ok(Object::Bool(left == right)),
+                    _ => Err(RloxError::Unreachable),
                 }
             }
             Expr::Unary(token, expr) => {
