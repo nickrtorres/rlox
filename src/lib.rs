@@ -352,11 +352,11 @@ impl<'a> Parser<'a> {
         self.expression()
     }
 
-    pub fn expression(&self) -> Result<Box<Expr>, RloxError> {
+    fn expression(&self) -> Result<Box<Expr>, RloxError> {
         self.equality()
     }
 
-    pub fn equality(&'a self) -> Result<Box<Expr>, RloxError> {
+    fn equality(&'a self) -> Result<Box<Expr>, RloxError> {
         let mut expr = self.comparison()?;
 
         while self.match_tokens(vec![TokenType::BangEqual, TokenType::EqualEqual]) {
@@ -369,7 +369,7 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    pub fn comparison(&self) -> Result<Box<Expr>, RloxError> {
+    fn comparison(&self) -> Result<Box<Expr>, RloxError> {
         let mut expr = self.addition()?;
 
         while self.match_tokens(vec![
@@ -386,7 +386,7 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    pub fn addition(&self) -> Result<Box<Expr>, RloxError> {
+    fn addition(&self) -> Result<Box<Expr>, RloxError> {
         let mut expr = self.multiplication()?;
 
         while self.match_tokens(vec![TokenType::Minus, TokenType::Plus]) {
@@ -399,7 +399,7 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    pub fn multiplication(&self) -> Result<Box<Expr>, RloxError> {
+    fn multiplication(&self) -> Result<Box<Expr>, RloxError> {
         let mut expr = self.unary()?;
 
         while self.match_tokens(vec![TokenType::Slash, TokenType::Star]) {
@@ -412,7 +412,7 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    pub fn unary(&self) -> Result<Box<Expr>, RloxError> {
+    fn unary(&self) -> Result<Box<Expr>, RloxError> {
         if self.match_tokens(vec![TokenType::Bang, TokenType::Minus]) {
             let operator = self.previous()?;
             let right = self.unary()?;
@@ -423,7 +423,7 @@ impl<'a> Parser<'a> {
         self.primary()
     }
 
-    pub fn primary(&self) -> Result<Box<Expr>, RloxError> {
+    fn primary(&self) -> Result<Box<Expr>, RloxError> {
         if self.match_tokens(vec![TokenType::False]) {
             return Ok(Box::new(Expr::Literal(Object::Bool(false))));
         }
@@ -458,7 +458,7 @@ impl<'a> Parser<'a> {
         Err(RloxError::UnimplementedToken)
     }
 
-    pub fn consume(&self, token_type: TokenType, _msg: &'static str) -> Result<(), RloxError> {
+    fn consume(&self, token_type: TokenType, _msg: &'static str) -> Result<(), RloxError> {
         if !self.check(token_type) {
             return Err(RloxError::UnclosedParenthesis);
         }
@@ -470,7 +470,7 @@ impl<'a> Parser<'a> {
     // TODO: this should not be a vec. it should be a slice or an iterator
     //
     // maybe this should just be an if statement
-    pub fn match_tokens(&self, token_types: Vec<TokenType>) -> bool {
+    fn match_tokens(&self, token_types: Vec<TokenType>) -> bool {
         token_types
             .into_iter()
             .any(|token_type| self.check(token_type))
@@ -479,7 +479,7 @@ impl<'a> Parser<'a> {
             .is_some()
     }
 
-    pub fn check(&self, token_type: TokenType) -> bool {
+    fn check(&self, token_type: TokenType) -> bool {
         if self.is_at_end() {
             return false;
         }
@@ -489,23 +489,23 @@ impl<'a> Parser<'a> {
         })
     }
 
-    pub fn is_at_end(&self) -> bool {
+    fn is_at_end(&self) -> bool {
         self.peek()
             .map_or(false, |t| t.token_type == TokenType::Eof)
     }
 
-    pub fn peek(&self) -> Option<&Token> {
+    fn peek(&self) -> Option<&Token> {
         self.tokens.get(self.cursor.get())
     }
 
-    pub fn previous(&self) -> Result<&Token, RloxError> {
+    fn previous(&self) -> Result<&Token, RloxError> {
         debug_assert!(self.cursor.get() > 0);
         self.tokens
             .get(self.cursor.get() - 1)
             .ok_or(RloxError::NoPrevious)
     }
 
-    pub fn advance(&self) -> Option<&Token> {
+    fn advance(&self) -> Option<&Token> {
         if !self.is_at_end() {
             let old = self.cursor.get();
             self.cursor.replace(old + 1);
