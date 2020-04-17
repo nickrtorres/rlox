@@ -490,7 +490,8 @@ impl<'a> Parser<'a> {
     }
 
     pub fn is_at_end(&self) -> bool {
-        self.peek().map(|t| t.token_type == TokenType::Eof).unwrap()
+        self.peek()
+            .map_or(false, |t| t.token_type == TokenType::Eof)
     }
 
     pub fn peek(&self) -> Option<&Token> {
