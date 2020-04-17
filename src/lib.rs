@@ -25,6 +25,9 @@ pub enum RloxError {
     /// reason about the program after receiving this error, so we must
     /// propogate it up to the caller.
     UnimplementedToken,
+    /// The operand types do not match for the given binary expression. The
+    /// tuple elements are in RPN i.e. operator, left, right
+    MismatchedOperands(TokenType, Object, Object),
 }
 
 impl fmt::Display for RloxError {
@@ -339,53 +342,89 @@ pub enum Object {
 }
 
 impl<'a> Expr<'a> {
-    pub fn interpret(self) -> Object {
+    pub fn interpret(self) -> Result<Object, RloxError> {
         match self {
             Expr::Binary(left_expr, token, right_expr) => {
-                let left = left_expr.interpret();
-                let right = right_expr.interpret();
+                let left = left_expr.interpret()?;
+                let right = right_expr.interpret()?;
 
                 match token.token_type {
-                    TokenType::Minus => match (left, right) {
-                        (Object::Number(l), Object::Number(r)) => return Object::Number(l - r),
-                        (_, _) => unreachable!(),
+                    TokenType::Minus => match (&left, &right) {
+                        (Object::Number(l), Object::Number(r)) => return Ok(Object::Number(l - r)),
+                        (Object::Number(_), _) => {
+                            return Err(RloxError::MismatchedOperands(
+                                TokenType::Minus,
+                                left,
+                                right,
+                            ))
+                        }
+                        (_, Object::Number(_)) => {
+                            return Err(RloxError::MismatchedOperands(
+                                TokenType::Minus,
+                                left,
+                                right,
+                            ))
+                        }
+                        (_, _) => return Err(RloxError::Unreachable),
                     },
-                    TokenType::Slash => match (left, right) {
-                        (Object::Number(l), Object::Number(r)) => return Object::Number(l / r),
-                        (_, _) => unreachable!(),
+                    TokenType::Slash => match (&left, &right) {
+                        (Object::Number(l), Object::Number(r)) => return Ok(Object::Number(l / r)),
+                        (Object::Number(_), _) => {
+                            return Err(RloxError::MismatchedOperands(
+                                TokenType::Slash,
+                                left,
+                                right,
+                            ))
+                        }
+                        (_, Object::Number(_)) => {
+                            return Err(RloxError::MismatchedOperands(
+                                TokenType::Slash,
+                                left,
+                                right,
+                            ))
+                        }
+                        (_, _) => return Err(RloxError::Unreachable),
                     },
-                    TokenType::Star => match (left, right) {
-                        (Object::Number(l), Object::Number(r)) => return Object::Number(l * r),
-                        (_, _) => unreachable!(),
+                    TokenType::Star => match (&left, &right) {
+                        (Object::Number(l), Object::Number(r)) => return Ok(Object::Number(l * r)),
+                        (Object::Number(_), _) => {
+                            return Err(RloxError::MismatchedOperands(TokenType::Star, left, right))
+                        }
+                        (_, Object::Number(_)) => {
+                            return Err(RloxError::MismatchedOperands(TokenType::Star, left, right))
+                        }
+                        (_, _) => return Err(RloxError::Unreachable),
                     },
                     TokenType::Plus => match (left, right) {
-                        (Object::Number(l), Object::Number(r)) => return Object::Number(l + r),
-                        (Object::String(l), Object::String(r)) => return Object::String(l + &r),
-                        (_, _) => unreachable!(),
+                        (Object::Number(l), Object::Number(r)) => return Ok(Object::Number(l + r)),
+                        (Object::String(l), Object::String(r)) => {
+                            return Ok(Object::String(l + &r))
+                        }
+                        (_, _) => Err(RloxError::Unreachable),
                     },
-                    TokenType::BangEqual => return Object::Bool(left != right),
-                    TokenType::EqualEqual => return Object::Bool(left == right),
-                    _ => unreachable!(),
+                    TokenType::BangEqual => return Ok(Object::Bool(left != right)),
+                    TokenType::EqualEqual => return Ok(Object::Bool(left == right)),
+                    _ => return Err(RloxError::Unreachable),
                 }
             }
             Expr::Unary(token, expr) => {
-                let right = expr.interpret();
+                let right = expr.interpret()?;
 
                 if let TokenType::Minus = token.token_type {
                     if let Object::Number(n) = right {
-                        return Object::Number(f64::from(-1) * n);
+                        return Ok(Object::Number(f64::from(-1) * n));
                     }
                 } else if let TokenType::Bang = token.token_type {
                     if let Object::Bool(b) = right {
-                        return Object::Bool(!b);
+                        return Ok(Object::Bool(!b));
                     } else {
-                        return Object::Bool(!false);
+                        return Ok(Object::Bool(!false));
                     }
                 }
 
-                unreachable!()
+                return Err(RloxError::Unreachable);
             }
-            Expr::Literal(obj) => obj,
+            Expr::Literal(obj) => Ok(obj),
             Expr::Grouping(group) => group.interpret(),
         }
     }
