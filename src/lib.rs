@@ -6,7 +6,10 @@ use std::error;
 use std::fmt;
 use std::iter::Peekable;
 use std::mem::discriminant;
+use std::result;
 use std::str::Chars;
+
+pub type Result<T> = result::Result<T, RloxError>;
 
 #[derive(Debug, PartialEq)]
 pub enum RloxError {
@@ -43,7 +46,7 @@ pub enum RloxError {
 
 impl fmt::Display for RloxError {
     // TODO this should not use fmt::Debug at all
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
         match self {
             Self::MismatchedOperands(op, left, right) => write!(
                 f,
@@ -362,7 +365,7 @@ pub enum Object {
 }
 
 impl<'a> Expr<'a> {
-    pub fn interpret(self) -> Result<Object, RloxError> {
+    pub fn interpret(self) -> Result<Object> {
         match self {
             Expr::Binary(left_expr, token, right_expr) => {
                 let left = left_expr.interpret()?;
@@ -464,7 +467,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse_stmts(&self) -> Result<Vec<Box<Stmt>>, RloxError> {
+    pub fn parse_stmts(&self) -> Result<Vec<Box<Stmt>>> {
         let mut statements: Vec<Box<Stmt>> = Vec::new();
 
         while !self.is_at_end() {
@@ -474,7 +477,7 @@ impl<'a> Parser<'a> {
         Ok(statements)
     }
 
-    fn statement(&self) -> Result<Box<Stmt>, RloxError> {
+    fn statement(&self) -> Result<Box<Stmt>> {
         if self.match_tokens(vec![TokenType::Print]) {
             self.print_statement()
         } else {
@@ -482,28 +485,28 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn print_statement(&self) -> Result<Box<Stmt>, RloxError> {
+    fn print_statement(&self) -> Result<Box<Stmt>> {
         let value = self.expression()?;
         self.consume(TokenType::Semicolon, "Expect ';' after value")?;
         Ok(Box::new(Stmt::Print(*value)))
     }
 
-    fn expression_statement(&self) -> Result<Box<Stmt>, RloxError> {
+    fn expression_statement(&self) -> Result<Box<Stmt>> {
         let value = self.expression()?;
         self.consume(TokenType::Semicolon, "Expect ';' after value")?;
         Ok(Box::new(Stmt::Expression(*value)))
     }
 
     /// Parse Lox's grammer into an AST
-    pub fn parse(&self) -> Result<Box<Expr>, RloxError> {
+    pub fn parse(&self) -> Result<Box<Expr>> {
         self.expression()
     }
 
-    fn expression(&self) -> Result<Box<Expr>, RloxError> {
+    fn expression(&self) -> Result<Box<Expr>> {
         self.equality()
     }
 
-    fn equality(&'a self) -> Result<Box<Expr>, RloxError> {
+    fn equality(&'a self) -> Result<Box<Expr>> {
         let mut expr = self.comparison()?;
 
         while self.match_tokens(vec![TokenType::BangEqual, TokenType::EqualEqual]) {
@@ -516,7 +519,7 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    fn comparison(&self) -> Result<Box<Expr>, RloxError> {
+    fn comparison(&self) -> Result<Box<Expr>> {
         let mut expr = self.addition()?;
 
         while self.match_tokens(vec![
@@ -533,7 +536,7 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    fn addition(&self) -> Result<Box<Expr>, RloxError> {
+    fn addition(&self) -> Result<Box<Expr>> {
         let mut expr = self.multiplication()?;
 
         while self.match_tokens(vec![TokenType::Minus, TokenType::Plus]) {
@@ -546,7 +549,7 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    fn multiplication(&self) -> Result<Box<Expr>, RloxError> {
+    fn multiplication(&self) -> Result<Box<Expr>> {
         let mut expr = self.unary()?;
 
         while self.match_tokens(vec![TokenType::Slash, TokenType::Star]) {
@@ -559,7 +562,7 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    fn unary(&self) -> Result<Box<Expr>, RloxError> {
+    fn unary(&self) -> Result<Box<Expr>> {
         if self.match_tokens(vec![TokenType::Bang, TokenType::Minus]) {
             let operator = self.previous()?;
             let right = self.unary()?;
@@ -570,7 +573,7 @@ impl<'a> Parser<'a> {
         self.primary()
     }
 
-    fn primary(&self) -> Result<Box<Expr>, RloxError> {
+    fn primary(&self) -> Result<Box<Expr>> {
         if self.match_tokens(vec![TokenType::False]) {
             return Ok(Box::new(Expr::Literal(Object::Bool(false))));
         }
@@ -605,7 +608,7 @@ impl<'a> Parser<'a> {
         Err(RloxError::UnimplementedToken)
     }
 
-    fn consume(&self, token_type: TokenType, _msg: &'static str) -> Result<(), RloxError> {
+    fn consume(&self, token_type: TokenType, _msg: &'static str) -> Result<()> {
         if !self.check(token_type) {
             return Err(RloxError::UnclosedParenthesis);
         }
@@ -645,7 +648,7 @@ impl<'a> Parser<'a> {
         self.tokens.get(self.cursor.get())
     }
 
-    fn previous(&self) -> Result<&Token, RloxError> {
+    fn previous(&self) -> Result<&Token> {
         debug_assert!(self.cursor.get() > 0);
         self.tokens
             .get(self.cursor.get() - 1)
