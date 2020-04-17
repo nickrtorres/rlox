@@ -434,7 +434,7 @@ impl<'a> Parser<'a> {
             return Ok(Box::new(Expr::Literal(Object::Nil)));
         }
 
-        // TODO: Ahhhhh this is a mess!
+        // TODO: constructing variants for Number and String isn't ideal
         if self.match_tokens(vec![
             TokenType::Number(f64::from(0)),
             TokenType::String(String::new()),
