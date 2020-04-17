@@ -419,6 +419,11 @@ impl<'a> Expr<'a> {
     }
 }
 
+pub enum Stmt<'a> {
+    Expression(Expr<'a>),
+    Print(Expr<'a>),
+}
+
 /// Parses a series of Tokens into an abstract syntax tree
 ///
 /// Parser implements Lox's grammer show below:
@@ -457,6 +462,36 @@ impl<'a> Parser<'a> {
             tokens,
             cursor: Cell::new(0),
         }
+    }
+
+    pub fn parse_stmts(&self) -> Result<Vec<Box<Stmt>>, RloxError> {
+        let mut statements: Vec<Box<Stmt>> = Vec::new();
+
+        while !self.is_at_end() {
+            statements.push(self.statement()?);
+        }
+
+        Ok(statements)
+    }
+
+    fn statement(&self) -> Result<Box<Stmt>, RloxError> {
+        if self.match_tokens(vec![TokenType::Print]) {
+            self.print_statement()
+        } else {
+            self.expression_statement()
+        }
+    }
+
+    fn print_statement(&self) -> Result<Box<Stmt>, RloxError> {
+        let value = self.expression()?;
+        self.consume(TokenType::Semicolon, "Expect ';' after value")?;
+        Ok(Box::new(Stmt::Print(*value)))
+    }
+
+    fn expression_statement(&self) -> Result<Box<Stmt>, RloxError> {
+        let value = self.expression()?;
+        self.consume(TokenType::Semicolon, "Expect ';' after value")?;
+        Ok(Box::new(Stmt::Expression(*value)))
     }
 
     /// Parse Lox's grammer into an AST
