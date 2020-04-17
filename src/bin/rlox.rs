@@ -17,7 +17,11 @@ fn run<T: BufRead>(b: &mut T) -> Result<()> {
     let mut scanner = Scanner::new(&buf);
     let parser = Parser::new(scanner.scan_tokens());
     let expr = parser.parse()?;
-    println!("{:?}", expr.interpret());
+    // TODO this should not use fmt::Debug at all
+    match expr.interpret() {
+        Ok(r) => println!("{:?}", r),
+        Err(e) => println!("{}", e),
+    }
 
     Ok(())
 }
