@@ -360,21 +360,21 @@ impl<'a> Expr<'a> {
                 match token.token_type {
                     TokenType::Minus => match (&left, &right) {
                         (Object::Number(l), Object::Number(r)) => Ok(Object::Number(l - r)),
-                        (_, _) => Err(RloxError::MismatchedOperands(TokenType::Minus, left, right)),
+                        _ => Err(RloxError::MismatchedOperands(TokenType::Minus, left, right)),
                     },
                     TokenType::Slash => match (&left, &right) {
                         (Object::Number(l), Object::Number(r)) => Ok(Object::Number(l / r)),
-                        (_, _) => Err(RloxError::MismatchedOperands(TokenType::Slash, left, right)),
+                        _ => Err(RloxError::MismatchedOperands(TokenType::Slash, left, right)),
                     },
                     TokenType::Star => match (&left, &right) {
                         (Object::Number(l), Object::Number(r)) => return Ok(Object::Number(l * r)),
-                        (_, _) => Err(RloxError::MismatchedOperands(TokenType::Star, left, right)),
+                        _ => Err(RloxError::MismatchedOperands(TokenType::Star, left, right)),
                     },
                     // TODO use mismatched operands error instead of unreachable
                     TokenType::Plus => match (left, right) {
                         (Object::Number(l), Object::Number(r)) => Ok(Object::Number(l + r)),
                         (Object::String(l), Object::String(r)) => Ok(Object::String(l + &r)),
-                        (_, _) => Err(RloxError::Unreachable),
+                        _ => Err(RloxError::Unreachable),
                     },
                     TokenType::BangEqual => Ok(Object::Bool(left != right)),
                     TokenType::EqualEqual => Ok(Object::Bool(left == right)),
