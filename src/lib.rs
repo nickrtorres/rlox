@@ -42,8 +42,8 @@ pub enum RloxError {
 impl fmt::Display for RloxError {
     // TODO this should not use fmt::Debug at all
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        match *self {
-            Self::MismatchedOperands(ref op, ref left, ref right) => write!(
+        match self {
+            Self::MismatchedOperands(op, left, right) => write!(
                 f,
                 "Error: invalid expression: {:?} {:?} {:?}",
                 left, op, right
