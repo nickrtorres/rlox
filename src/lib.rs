@@ -419,6 +419,26 @@ impl<'a> Expr<'a> {
     }
 }
 
+/// Parses a series of Tokens into an abstract syntax tree
+///
+/// Parser implements Lox's grammer show below:
+/// ```notrust
+///   expression     → equality ;
+///   equality       → comparison ( ( "!=" | "==" ) comparison )* ;
+///   comparison     → addition ( ( ">" | ">=" | "<" | "<=" ) addition )* ;
+///   addition       → multiplication ( ( "-" | "+" ) multiplication )* ;
+///   multiplication → unary ( ( "/" | "*" ) unary )* ;
+///   unary          → ( "!" | "-" ) unary
+///                  | primary ;
+///   primary        → NUMBER | STRING | "false" | "true" | "nil"
+///                  | "(" expression ")" ;
+///   program        → statement* EOF ;
+///   statement      → exprStmt
+///                  | printStmt ;
+///   exprStmt       → expression ";" ;
+///   printStmt      → "print" expression ";" ;
+/// ```
+///
 /// `Parser` is **not** thread safe. Internally, `Parser` uses interior
 /// mutability to manage it's internal cursor for the current, next, and
 /// previous tokens. This is an implementation detail most end users don't need
@@ -439,6 +459,7 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// Parse Lox's grammer into an AST
     pub fn parse(&self) -> Result<Box<Expr>, RloxError> {
         self.expression()
     }
