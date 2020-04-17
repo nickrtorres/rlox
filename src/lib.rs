@@ -370,7 +370,6 @@ impl<'a> Expr<'a> {
                         (Object::Number(l), Object::Number(r)) => return Ok(Object::Number(l * r)),
                         _ => Err(RloxError::MismatchedOperands(TokenType::Star, left, right)),
                     },
-                    // TODO use mismatched operands error instead of unreachable
                     TokenType::Plus => match (&left, &right) {
                         (Object::Number(l), Object::Number(r)) => Ok(Object::Number(*l + *r)),
                         (Object::String(l), Object::String(r)) => {
