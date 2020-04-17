@@ -455,7 +455,7 @@ impl<'a> Parser<'a> {
             return Ok(Box::new(Expr::Grouping(expr)));
         }
 
-        Err(RloxError::UnsupportedToken)
+        Err(RloxError::UnimplementedToken)
     }
 
     pub fn consume(&self, token_type: TokenType, _msg: &'static str) -> Result<(), RloxError> {
@@ -903,5 +903,19 @@ mod tests {
         let expected = Expr::Binary(Box::new(star_expr), &greater, Box::new(slash_expr));
 
         assert_eq!(expected, *parser.parse().unwrap());
+    }
+
+    #[test]
+    fn it_detects_unclosed_parenthesis() {
+        let mut scanner = Scanner::new("(1");
+        let parser = Parser::new(scanner.scan_tokens());
+        assert_eq!(Err(RloxError::UnclosedParenthesis), parser.parse());
+    }
+
+    #[test]
+    fn it_is_a_wip() {
+        let mut scanner = Scanner::new("var foo = \"bar\";");
+        let parser = Parser::new(scanner.scan_tokens());
+        assert_eq!(Err(RloxError::UnimplementedToken), parser.parse());
     }
 }
