@@ -26,7 +26,7 @@ pub enum RloxError {
     /// propogate it up to the caller.
     UnimplementedToken,
     /// The operand types do not match for the given binary expression. The
-    /// tuple elements are in RPN i.e. operator, left, right
+    /// tuple elements are in [Polish notation][wiki-NPN] i.e. operator, left, right
     ///
     /// TODO (*maybe*) mismatched operands can be specialized even further:
     /// ```notrust
@@ -36,6 +36,8 @@ pub enum RloxError {
     /// +--- InvalidOperands(TokenType, Object, Object)
     ///      - Ex: true / nil
     /// ```
+    ///
+    /// [wiki-NPN]: https://en.wikipedia.org/wiki/Polish_notation
     MismatchedOperands(TokenType, Object, Object),
 }
 
