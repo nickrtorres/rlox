@@ -6,12 +6,23 @@ use std::iter::Peekable;
 use std::mem::discriminant;
 use std::str::Chars;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum RloxError {
+    /// An internal error occured when querying for the previous element. This
+    /// is either due to a programming error or an internal error in `Vec`. The
+    /// former is *much* more likely.
     NoPrevious,
+    /// An '(' open parenthesis token was parsed, but no ')' close parenthesis
+    /// token was found.
     UnclosedParenthesis,
+    /// A quasi-unreachable block was reached! This is a nicer
+    /// `unreachable!`---by nicer I mean it doesn't `panic`
     Unreachable,
-    UnsupportedToken,
+    /// An unimplemented token was encountered. Since this interpretter is a
+    /// WIP, this is a very likely error. Unfortunately, we can no longer
+    /// reason about the program after receiving this error, so we must
+    /// propogate it up to the caller.
+    UnimplementedToken,
 }
 
 #[derive(Debug, PartialEq)]
