@@ -16,8 +16,8 @@ fn run<T: BufRead>(b: &mut T) -> Result<()> {
     let _ = b.read_line(&mut buf)?;
     let mut scanner = Scanner::new(&buf);
     let parser = Parser::new(scanner.scan_tokens());
-    let expr = parser.parse();
-    println!("{:?}", expr);
+    let expr = parser.parse()?;
+    println!("{:?}", expr.interpret());
 
     Ok(())
 }

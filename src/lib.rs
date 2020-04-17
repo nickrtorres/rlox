@@ -2,6 +2,8 @@
 #![feature(str_strip)]
 #![feature(bool_to_option)]
 use std::cell::Cell;
+use std::error;
+use std::fmt;
 use std::iter::Peekable;
 use std::mem::discriminant;
 use std::str::Chars;
@@ -24,6 +26,14 @@ pub enum RloxError {
     /// propogate it up to the caller.
     UnimplementedToken,
 }
+
+impl fmt::Display for RloxError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl error::Error for RloxError {}
 
 #[derive(Debug, PartialEq)]
 pub enum TokenType {
@@ -326,6 +336,59 @@ pub enum Object {
     Nil,
     Number(f64),
     String(String),
+}
+
+impl<'a> Expr<'a> {
+    pub fn interpret(self) -> Object {
+        match self {
+            Expr::Binary(left_expr, token, right_expr) => {
+                let left = left_expr.interpret();
+                let right = right_expr.interpret();
+
+                match token.token_type {
+                    TokenType::Minus => match (left, right) {
+                        (Object::Number(l), Object::Number(r)) => return Object::Number(l - r),
+                        (_, _) => unreachable!(),
+                    },
+                    TokenType::Slash => match (left, right) {
+                        (Object::Number(l), Object::Number(r)) => return Object::Number(l / r),
+                        (_, _) => unreachable!(),
+                    },
+                    TokenType::Star => match (left, right) {
+                        (Object::Number(l), Object::Number(r)) => return Object::Number(l * r),
+                        (_, _) => unreachable!(),
+                    },
+                    TokenType::Plus => match (left, right) {
+                        (Object::Number(l), Object::Number(r)) => return Object::Number(l + r),
+                        (Object::String(l), Object::String(r)) => return Object::String(l + &r),
+                        (_, _) => unreachable!(),
+                    },
+                    TokenType::BangEqual => return Object::Bool(left != right),
+                    TokenType::EqualEqual => return Object::Bool(left == right),
+                    _ => unreachable!(),
+                }
+            }
+            Expr::Unary(token, expr) => {
+                let right = expr.interpret();
+
+                if let TokenType::Minus = token.token_type {
+                    if let Object::Number(n) = right {
+                        return Object::Number(f64::from(-1) * n);
+                    }
+                } else if let TokenType::Bang = token.token_type {
+                    if let Object::Bool(b) = right {
+                        return Object::Bool(!b);
+                    } else {
+                        return Object::Bool(!false);
+                    }
+                }
+
+                unreachable!()
+            }
+            Expr::Literal(obj) => obj,
+            Expr::Grouping(group) => group.interpret(),
+        }
+    }
 }
 
 /// `Parser` is **not** thread safe. Internally, `Parser` uses interior
@@ -918,5 +981,69 @@ mod tests {
         let mut scanner = Scanner::new("var foo = \"bar\";");
         let parser = Parser::new(scanner.scan_tokens());
         assert_eq!(Err(RloxError::UnimplementedToken), parser.parse());
+    }
+
+    #[test]
+    fn it_can_evaluate_a_unary_expression() {
+        let mut scanner = Scanner::new("-1");
+        let parser = Parser::new(scanner.scan_tokens());
+        let expr = parser.parse().unwrap();
+        assert_eq!(Object::Number(f64::from(-1)), expr.interpret());
+    }
+
+    #[test]
+    fn it_can_evaluate_a_literal_expression() {
+        let mut scanner = Scanner::new("true");
+        let parser = Parser::new(scanner.scan_tokens());
+        let expr = parser.parse().unwrap();
+        assert_eq!(Object::Bool(true), expr.interpret());
+    }
+
+    #[test]
+    fn it_can_evaluate_a_literal_expression_nil() {
+        let mut scanner = Scanner::new("nil");
+        let parser = Parser::new(scanner.scan_tokens());
+        let expr = parser.parse().unwrap();
+        assert_eq!(Object::Nil, expr.interpret());
+    }
+
+    #[test]
+    fn it_can_evaluate_a_binary_expression_mult() {
+        let mut scanner = Scanner::new("6 * 7");
+        let parser = Parser::new(scanner.scan_tokens());
+        let expr = parser.parse().unwrap();
+        assert_eq!(Object::Number(f64::from(42)), expr.interpret());
+    }
+
+    #[test]
+    fn it_can_evaluate_a_binary_expression_div() {
+        let mut scanner = Scanner::new("8 / 4");
+        let parser = Parser::new(scanner.scan_tokens());
+        let expr = parser.parse().unwrap();
+        assert_eq!(Object::Number(f64::from(8 / 4)), expr.interpret());
+    }
+
+    #[test]
+    fn it_can_evaluate_a_binary_expression_complex_notequal() {
+        let mut scanner = Scanner::new("2 * 3 - 4 != 5 * 6 - 7");
+        let parser = Parser::new(scanner.scan_tokens());
+        let expr = parser.parse().unwrap();
+        assert_eq!(Object::Bool(true), expr.interpret());
+    }
+
+    #[test]
+    fn it_can_evaluate_a_binary_expression_complex_equal() {
+        let mut scanner = Scanner::new("(4 + 4) == (2 * 2 * 2)");
+        let parser = Parser::new(scanner.scan_tokens());
+        let expr = parser.parse().unwrap();
+        assert_eq!(Object::Bool(true), expr.interpret());
+    }
+
+    #[test]
+    fn it_can_evaluate_string_concatenation() {
+        let mut scanner = Scanner::new("\"foo\" + \"bar\"");
+        let parser = Parser::new(scanner.scan_tokens());
+        let expr = parser.parse().unwrap();
+        assert_eq!(Object::String(String::from("foobar")), expr.interpret());
     }
 }
