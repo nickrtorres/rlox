@@ -1,3 +1,15 @@
+//! `librlox` is the library that powers the rlox interpreter.
+//!
+//! `rlox` is a rust port of the Lox Java interpreter (i.e. `jlox`).  `rlox`
+//! differs from `jlox` is a number of ways namely:
+//! - `rlox` uses `std::result::Result` to report errors (`jlox` uses exceptions)
+//! - `rlox` uses `Expr` and `Stmt` sum types to represent expressions and
+//!   statements, respectively (`jlox` uses abstract `Expr` and `Stmt` classes and
+//!   specialized subclasses).
+//! - `rlox` defines associated functions for `Expr` and `Stmt` to operate on
+//!   variants of each type (`jlox` uses the visitor pattern)
+//! - `rlox` defines an `interpret` associated function directly on the `Expr`
+//!   type (`jlox` uses a new `Interpreter` object with an `interpret` method
 #![warn(clippy::pedantic)]
 #![feature(str_strip)]
 #![feature(bool_to_option)]
@@ -355,12 +367,26 @@ pub enum Expr<'a> {
     Unary(&'a Token, Box<Expr<'a>>),
 }
 
-/// Emulate Java's object type for literals
+/// Emulates Java's object type for literals
+///
+/// The root of Java's class heirarchy is the [`Object`][java-object] class.
+/// `Boolean`, `Double` (through `Number`), `String`, and others extend
+/// `Object`.  This allows any Java method to return `Object` and then downcast
+/// to a more specialized representation. As far as I know, there is no such
+/// analogue in Rust. Instead, explicitly define an `Object` enum that offers a
+/// fixed domain of acceptable types with their `Rust` primitive as the
+/// underlying data.
+///
+/// [java-object]: https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/lang/package-tree.html
 #[derive(Debug, PartialEq)]
 pub enum Object {
+    /// Emulates a [Java `Boolean`](https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/lang/Boolean.html)
     Bool(bool),
+    /// Emulates the [*billion-dollar mistake*](https://en.wikipedia.org/wiki/Tony_Hoare#Apologies_and_retractions)
     Nil,
+    /// Emulates a [Java `Double`](https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/lang/Double.html)
     Number(f64),
+    /// Emulates a [Java `String`](https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/lang/String.html)
     String(String),
 }
 
