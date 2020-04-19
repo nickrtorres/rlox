@@ -74,7 +74,7 @@ impl error::Error for RloxError {}
 
 #[derive(Debug, PartialEq)]
 pub enum TokenType {
-    /// Single-character tokens
+    // Single-character tokens
     LeftParen,
     RightParen,
     LeftBrace,
