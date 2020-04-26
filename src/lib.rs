@@ -420,6 +420,22 @@ impl<'a> Expr<'a> {
                         }
                         _ => Err(RloxError::MismatchedOperands(TokenType::Plus, left, right)),
                     },
+                    TokenType::Greater => match (&left, &right) {
+                        (Object::Number(l), Object::Number(r)) => Ok(Object::Bool(l > r)),
+                        _ => Err(RloxError::MismatchedOperands(TokenType::Plus, left, right)),
+                    },
+                    TokenType::GreaterEqual => match (&left, &right) {
+                        (Object::Number(l), Object::Number(r)) => Ok(Object::Bool(l >= r)),
+                        _ => Err(RloxError::MismatchedOperands(TokenType::Plus, left, right)),
+                    },
+                    TokenType::Less => match (&left, &right) {
+                        (Object::Number(l), Object::Number(r)) => Ok(Object::Bool(l < r)),
+                        _ => Err(RloxError::MismatchedOperands(TokenType::Plus, left, right)),
+                    },
+                    TokenType::LessEqual => match (&left, &right) {
+                        (Object::Number(l), Object::Number(r)) => Ok(Object::Bool(l <= r)),
+                        _ => Err(RloxError::MismatchedOperands(TokenType::Plus, left, right)),
+                    },
                     TokenType::BangEqual => Ok(Object::Bool(left != right)),
                     TokenType::EqualEqual => Ok(Object::Bool(left == right)),
                     _ => Err(RloxError::Unreachable),
