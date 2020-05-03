@@ -64,11 +64,11 @@ impl fmt::Display for RloxError {
         match self {
             Self::MismatchedOperands(op, left, right) => write!(
                 f,
-                "Error: invalid expression: {:?} {:?} {:?}",
+                "error: invalid expression: {:?} {:?} {:?}",
                 left, op, right
             ),
-            Self::MissingSemicolon(line) => write!(f, "Error: {}: missing semicolon", line),
-            Self::UnclosedParenthesis(line) => write!(f, "Error: {}: unclosed parenthesis", line),
+            Self::MissingSemicolon(line) => write!(f, "error: {}: missing semicolon", line),
+            Self::UnclosedParenthesis(line) => write!(f, "error: {}: unclosed parenthesis", line),
             _ => write!(f, "{:?}", self),
         }
     }
