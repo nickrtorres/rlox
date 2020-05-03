@@ -684,7 +684,10 @@ impl<'a> Parser<'a> {
 
     fn consume(&self, token_type: TokenType, _msg: &'static str) -> Result<()> {
         if !self.check(&token_type) {
-            let line = self.peek().ok_or(RloxError::Unreachable)?.line;
+            // We already consumed the problematic token.  We need to step back
+            // for a second to grab the bad line number. It should be *impossible*
+            // for the token we just consumed to not be there.
+            let line = self.previous().map_err(|_| RloxError::Unreachable)?.line;
 
             match token_type {
                 // TODO: add line numbers to error variants
