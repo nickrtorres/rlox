@@ -402,12 +402,11 @@ impl fmt::Display for Object {
 }
 
 impl<'a> Expr<'a> {
-    // TODO rename to evaluate?
-    pub fn interpret(self) -> Result<Object> {
+    fn evaluate(self) -> Result<Object> {
         match self {
             Expr::Binary(left_expr, token, right_expr) => {
-                let left = left_expr.interpret()?;
-                let right = right_expr.interpret()?;
+                let left = left_expr.evaluate()?;
+                let right = right_expr.evaluate()?;
 
                 match token.token_type {
                     TokenType::Minus => match (&left, &right) {
@@ -454,7 +453,7 @@ impl<'a> Expr<'a> {
                 }
             }
             Expr::Unary(token, expr) => {
-                let right = expr.interpret()?;
+                let right = expr.evaluate()?;
 
                 if let TokenType::Minus = token.token_type {
                     if let Object::Number(n) = right {
@@ -471,7 +470,7 @@ impl<'a> Expr<'a> {
                 Err(RloxError::Unreachable)
             }
             Expr::Literal(obj) => Ok(obj),
-            Expr::Grouping(group) => group.interpret(),
+            Expr::Grouping(group) => group.evaluate(),
         }
     }
 }
@@ -485,10 +484,10 @@ impl<'a> Stmt<'a> {
     pub fn execute(self) -> Result<()> {
         match self {
             Self::Expression(expr) => {
-                expr.interpret()?;
+                expr.evaluate()?;
             }
             Self::Print(expr) => {
-                let value = expr.interpret()?;
+                let value = expr.evaluate()?;
                 println!("{}", value);
             }
         }
@@ -1145,7 +1144,7 @@ mod tests {
         let mut scanner = Scanner::new("-1");
         let parser = Parser::new(scanner.scan_tokens());
         let expr = parser.parse().unwrap();
-        assert_eq!(Ok(Object::Number(f64::from(-1))), expr.interpret());
+        assert_eq!(Ok(Object::Number(f64::from(-1))), expr.evaluate());
     }
 
     #[test]
@@ -1153,7 +1152,7 @@ mod tests {
         let mut scanner = Scanner::new("true");
         let parser = Parser::new(scanner.scan_tokens());
         let expr = parser.parse().unwrap();
-        assert_eq!(Ok(Object::Bool(true)), expr.interpret());
+        assert_eq!(Ok(Object::Bool(true)), expr.evaluate());
     }
 
     #[test]
@@ -1161,7 +1160,7 @@ mod tests {
         let mut scanner = Scanner::new("nil");
         let parser = Parser::new(scanner.scan_tokens());
         let expr = parser.parse().unwrap();
-        assert_eq!(Ok(Object::Nil), expr.interpret());
+        assert_eq!(Ok(Object::Nil), expr.evaluate());
     }
 
     #[test]
@@ -1169,7 +1168,7 @@ mod tests {
         let mut scanner = Scanner::new("6 * 7");
         let parser = Parser::new(scanner.scan_tokens());
         let expr = parser.parse().unwrap();
-        assert_eq!(Ok(Object::Number(f64::from(42))), expr.interpret());
+        assert_eq!(Ok(Object::Number(f64::from(42))), expr.evaluate());
     }
 
     #[test]
@@ -1177,7 +1176,7 @@ mod tests {
         let mut scanner = Scanner::new("8 / 4");
         let parser = Parser::new(scanner.scan_tokens());
         let expr = parser.parse().unwrap();
-        assert_eq!(Ok(Object::Number(f64::from(8 / 4))), expr.interpret());
+        assert_eq!(Ok(Object::Number(f64::from(8 / 4))), expr.evaluate());
     }
 
     #[test]
@@ -1185,7 +1184,7 @@ mod tests {
         let mut scanner = Scanner::new("2 * 3 - 4 != 5 * 6 - 7");
         let parser = Parser::new(scanner.scan_tokens());
         let expr = parser.parse().unwrap();
-        assert_eq!(Ok(Object::Bool(true)), expr.interpret());
+        assert_eq!(Ok(Object::Bool(true)), expr.evaluate());
     }
 
     #[test]
@@ -1193,7 +1192,7 @@ mod tests {
         let mut scanner = Scanner::new("(4 + 4) == (2 * 2 * 2)");
         let parser = Parser::new(scanner.scan_tokens());
         let expr = parser.parse().unwrap();
-        assert_eq!(Ok(Object::Bool(true)), expr.interpret());
+        assert_eq!(Ok(Object::Bool(true)), expr.evaluate());
     }
 
     #[test]
@@ -1201,7 +1200,7 @@ mod tests {
         let mut scanner = Scanner::new("\"foo\" + \"bar\"");
         let parser = Parser::new(scanner.scan_tokens());
         let expr = parser.parse().unwrap();
-        assert_eq!(Ok(Object::String(String::from("foobar"))), expr.interpret());
+        assert_eq!(Ok(Object::String(String::from("foobar"))), expr.evaluate());
     }
 
     #[test]
@@ -1215,7 +1214,7 @@ mod tests {
                 Object::Number(f64::from(1)),
                 Object::String("foo".to_owned())
             )),
-            expr.interpret()
+            expr.evaluate()
         );
     }
 
@@ -1230,7 +1229,7 @@ mod tests {
                 Object::Number(f64::from(1)),
                 Object::String("bar".to_owned())
             )),
-            expr.interpret()
+            expr.evaluate()
         );
     }
 
@@ -1245,7 +1244,7 @@ mod tests {
                 Object::Bool(true),
                 Object::Number(f64::from(1)),
             )),
-            expr.interpret()
+            expr.evaluate()
         );
     }
 
@@ -1260,7 +1259,7 @@ mod tests {
                 Object::Number(f64::from(1)),
                 Object::Nil
             )),
-            expr.interpret()
+            expr.evaluate()
         );
     }
 }
