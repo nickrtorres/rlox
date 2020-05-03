@@ -390,7 +390,19 @@ pub enum Object {
     String(String),
 }
 
+impl fmt::Display for Object {
+    fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
+        match self {
+            Object::Bool(b) => write!(f, "{}", b),
+            Object::Nil => write!(f, "nil"),
+            Object::Number(n) => write!(f, "{}", n),
+            Object::String(s) => write!(f, "{}", s),
+        }
+    }
+}
+
 impl<'a> Expr<'a> {
+    // TODO rename to evaluate?
     pub fn interpret(self) -> Result<Object> {
         match self {
             Expr::Binary(left_expr, token, right_expr) => {
@@ -467,6 +479,22 @@ impl<'a> Expr<'a> {
 pub enum Stmt<'a> {
     Expression(Expr<'a>),
     Print(Expr<'a>),
+}
+
+impl<'a> Stmt<'a> {
+    pub fn execute(self) -> Result<()> {
+        match self {
+            Self::Expression(expr) => {
+                expr.interpret()?;
+            }
+            Self::Print(expr) => {
+                let value = expr.interpret()?;
+                println!("{}", value);
+            }
+        }
+
+        Ok(())
+    }
 }
 
 /// Parses a series of Tokens into an abstract syntax tree

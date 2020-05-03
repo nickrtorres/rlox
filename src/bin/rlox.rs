@@ -13,14 +13,14 @@ type Result<T> = result::Result<T, Error>;
 
 fn run<T: BufRead>(b: &mut T) -> Result<()> {
     let mut buf = String::with_capacity(1024);
-    let _ = b.read_line(&mut buf)?;
+    b.read_line(&mut buf)?;
+
     let mut scanner = Scanner::new(&buf);
     let parser = Parser::new(scanner.scan_tokens());
-    let expr = parser.parse()?;
-    // TODO this should not use fmt::Debug at all
-    match expr.interpret() {
-        Ok(r) => println!("{:?}", r),
-        Err(e) => println!("{}", e),
+    let statements = parser.parse_stmts()?;
+
+    for statement in statements {
+        statement.execute()?;
     }
 
     Ok(())
