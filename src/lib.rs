@@ -593,10 +593,8 @@ impl<'a> Parser<'a> {
         }
     }
 
-    // TODO: look into clippy lint:
-    // > `Vec<T>` is already on the heap, the boxing is unnecessary
-    pub fn parse_stmts(&self) -> Result<Vec<Box<Stmt>>> {
-        let mut statements: Vec<Box<Stmt>> = Vec::new();
+    pub fn parse_stmts(&self) -> Result<Vec<Stmt>> {
+        let mut statements: Vec<Stmt> = Vec::new();
 
         while !self.is_at_end() {
             statements.push(self.statement()?);
@@ -605,7 +603,7 @@ impl<'a> Parser<'a> {
         Ok(statements)
     }
 
-    fn statement(&self) -> Result<Box<Stmt>> {
+    fn statement(&self) -> Result<Stmt> {
         if self.match_tokens(vec![TokenType::Print]) {
             self.print_statement()
         } else {
@@ -613,16 +611,16 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn print_statement(&self) -> Result<Box<Stmt>> {
+    fn print_statement(&self) -> Result<Stmt> {
         let value = self.expression()?;
         self.consume(TokenType::Semicolon, "Expect ';' after value")?;
-        Ok(Box::new(Stmt::Print(*value)))
+        Ok(Stmt::Print(*value))
     }
 
-    fn expression_statement(&self) -> Result<Box<Stmt>> {
+    fn expression_statement(&self) -> Result<Stmt> {
         let value = self.expression()?;
         self.consume(TokenType::Semicolon, "Expect ';' after value")?;
-        Ok(Box::new(Stmt::Expression(*value)))
+        Ok(Stmt::Expression(*value))
     }
 
     /// Parse Lox's grammer into an AST
