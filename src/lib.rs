@@ -171,10 +171,9 @@ impl Token {
     }
 }
 
-// TODO remove this!
-impl ToString for Token {
-    fn to_string(&self) -> String {
-        format!("{} {} ", stringify!(self.token_type), self.lexeme,)
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
+        write!(f, "{} {} ", stringify!(self.token_type), self.lexeme)
     }
 }
 
