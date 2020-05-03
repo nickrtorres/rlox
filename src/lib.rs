@@ -683,6 +683,7 @@ impl<'a> Parser<'a> {
     fn consume(&self, token_type: TokenType, _msg: &'static str) -> Result<()> {
         if !self.check(&token_type) {
             match token_type {
+                // TODO: add line numbers to error variants
                 TokenType::RightParen => return Err(RloxError::UnclosedParenthesis),
                 TokenType::Semicolon => return Err(RloxError::MissingSemicolon),
                 _ => return Err(RloxError::Unreachable),
