@@ -421,6 +421,7 @@ pub enum Expr<'a> {
     Grouping(Box<Expr<'a>>),
     Literal(Object),
     Unary(&'a Token, Box<Expr<'a>>),
+    Variable(&'a Token),
 }
 
 /// Emulates Java's object type for literals
@@ -527,6 +528,7 @@ impl<'a> Expr<'a> {
             }
             Expr::Literal(obj) => Ok(obj),
             Expr::Grouping(group) => group.evaluate(),
+            _ => Err(RloxError::Unreachable),
         }
     }
 }
@@ -535,6 +537,7 @@ impl<'a> Expr<'a> {
 pub enum Stmt<'a> {
     Expression(Expr<'a>),
     Print(Expr<'a>),
+    Var(&'a Token),
 }
 
 impl<'a> Stmt<'a> {
@@ -547,6 +550,7 @@ impl<'a> Stmt<'a> {
                 let value = expr.evaluate()?;
                 println!("{}", value);
             }
+            _ => {}
         }
 
         Ok(())
