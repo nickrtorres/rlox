@@ -690,7 +690,6 @@ impl<'a> Parser<'a> {
             let line = self.previous().map_err(|_| RloxError::Unreachable)?.line;
 
             match token_type {
-                // TODO: add line numbers to error variants
                 TokenType::RightParen => return Err(RloxError::UnclosedParenthesis(line)),
                 TokenType::Semicolon => return Err(RloxError::MissingSemicolon(line)),
                 _ => return Err(RloxError::Unreachable),
