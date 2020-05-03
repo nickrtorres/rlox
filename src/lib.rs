@@ -59,16 +59,14 @@ pub enum RloxError {
 }
 
 impl fmt::Display for RloxError {
-    // TODO this should not use fmt::Debug at all
     fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
         match self {
-            Self::MismatchedOperands(op, left, right) => write!(
-                f,
-                "error: invalid expression: {:?} {:?} {:?}",
-                left, op, right
-            ),
+            Self::MismatchedOperands(op, left, right) => {
+                write!(f, "error: invalid expression: {} {} {}", left, op, right)
+            }
             Self::MissingSemicolon(line) => write!(f, "error: {}: missing semicolon", line),
             Self::UnclosedParenthesis(line) => write!(f, "error: {}: unclosed parenthesis", line),
+            // TODO: actually handle other errors
             _ => write!(f, "{:?}", self),
         }
     }
@@ -125,6 +123,61 @@ pub enum TokenType {
     While,
 
     Eof,
+}
+
+impl fmt::Display for TokenType {
+    // Single-character tokens
+    fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
+        // Handle Number separately so we don't have to allocate for the rest.
+        if let Self::Number(n) = self {
+            return write!(f, "{}", n);
+        }
+
+        let token = match self {
+            Self::LeftParen => "(",
+            Self::RightParen => ")",
+            Self::LeftBrace => "{",
+            Self::RightBrace => "}",
+            Self::Comma => ",",
+            Self::Dot => ".",
+            Self::Minus => "-",
+            Self::Plus => "+",
+            Self::Semicolon => ";",
+            Self::Slash => "/",
+            Self::Star => "*",
+            Self::Bang => "!",
+            Self::BangEqual => "!=",
+            Self::Equal => "=",
+            Self::EqualEqual => "==",
+            Self::Greater => ">",
+            Self::GreaterEqual => ">=",
+            Self::Less => "<",
+            Self::LessEqual => "<=",
+            Self::Identifier => "iden",
+            Self::String(s) => &s,
+            Self::And => "and",
+            Self::Class => "class",
+            Self::Else => "else",
+            Self::False => "false",
+            Self::Fun => "fun",
+            Self::For => "for",
+            Self::If => "if",
+            Self::Nil => "nil",
+            Self::Or => "or",
+            Self::Print => "print",
+            Self::Return => "return",
+            Self::Super => "super",
+            Self::This => "this",
+            Self::True => "true",
+            Self::Var => "var",
+            Self::While => "while",
+            Self::Eof => "eof",
+            // we already handled number above
+            _ => unreachable!(),
+        };
+
+        write!(f, "{}", token)
+    }
 }
 
 impl TokenType {
