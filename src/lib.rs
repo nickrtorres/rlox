@@ -54,6 +54,8 @@ pub enum RloxError {
     ///
     /// [wiki-NPN]: https://en.wikipedia.org/wiki/Polish_notation
     MismatchedOperands(TokenType, Object, Object),
+    /// The statement entered is missing a semicolon
+    MissingSemicolon,
 }
 
 impl fmt::Display for RloxError {
@@ -475,6 +477,7 @@ impl<'a> Expr<'a> {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum Stmt<'a> {
     Expression(Expr<'a>),
     Print(Expr<'a>),
@@ -678,8 +681,12 @@ impl<'a> Parser<'a> {
     }
 
     fn consume(&self, token_type: TokenType, _msg: &'static str) -> Result<()> {
-        if !self.check(token_type) {
-            return Err(RloxError::UnclosedParenthesis);
+        if !self.check(&token_type) {
+            match token_type {
+                TokenType::RightParen => return Err(RloxError::UnclosedParenthesis),
+                TokenType::Semicolon => return Err(RloxError::MissingSemicolon),
+                _ => return Err(RloxError::Unreachable),
+            }
         }
 
         self.advance();
@@ -692,13 +699,13 @@ impl<'a> Parser<'a> {
     fn match_tokens(&self, token_types: Vec<TokenType>) -> bool {
         token_types
             .into_iter()
-            .any(|token_type| self.check(token_type))
+            .any(|token_type| self.check(&token_type))
             .then_some(())
             .and_then(|_| self.advance())
             .is_some()
     }
 
-    fn check(&self, token_type: TokenType) -> bool {
+    fn check(&self, token_type: &TokenType) -> bool {
         if self.is_at_end() {
             return false;
         }
@@ -1261,5 +1268,100 @@ mod tests {
             )),
             expr.evaluate()
         );
+    }
+
+    #[test]
+    fn it_recognizes_valid_statements_print_arithmetic() {
+        let mut scanner = Scanner::new("print 1 + 1;");
+        let parser = Parser::new(scanner.scan_tokens());
+        let mut statements = parser.parse_stmts().unwrap();
+
+        assert_eq!(statements.len(), 1);
+        // TODO yikes
+        assert_eq!(Ok(()), statements.drain(..).next().unwrap().execute());
+    }
+
+    #[test]
+    fn it_recognizes_valid_statements_print_boolean() {
+        let mut scanner = Scanner::new("print true;");
+        let parser = Parser::new(scanner.scan_tokens());
+        let mut statements = parser.parse_stmts().unwrap();
+
+        assert_eq!(statements.len(), 1);
+        // TODO yikes
+        assert_eq!(Ok(()), statements.drain(..).next().unwrap().execute());
+    }
+
+    #[test]
+    fn it_recognizes_valid_statements_print_string() {
+        let mut scanner = Scanner::new("print \"foo\";");
+        let parser = Parser::new(scanner.scan_tokens());
+        let mut statements = parser.parse_stmts().unwrap();
+
+        assert_eq!(statements.len(), 1);
+        // TODO yikes
+        assert_eq!(Ok(()), statements.drain(..).next().unwrap().execute());
+    }
+
+    #[test]
+    fn it_recognizes_valid_statements_print_nil() {
+        let mut scanner = Scanner::new("print nil;");
+        let parser = Parser::new(scanner.scan_tokens());
+        let mut statements = parser.parse_stmts().unwrap();
+
+        assert_eq!(statements.len(), 1);
+        // TODO yikes
+        assert_eq!(Ok(()), statements.drain(..).next().unwrap().execute());
+    }
+
+    #[test]
+    fn it_recognizes_valid_statements_expression_arithmetic() {
+        let mut scanner = Scanner::new("1 + 1;");
+        let parser = Parser::new(scanner.scan_tokens());
+        let mut statements = parser.parse_stmts().unwrap();
+
+        assert_eq!(statements.len(), 1);
+        // TODO yikes
+        assert_eq!(Ok(()), statements.drain(..).next().unwrap().execute());
+    }
+
+    #[test]
+    fn it_recognizes_valid_statements_expression_boolean() {
+        let mut scanner = Scanner::new("true;");
+        let parser = Parser::new(scanner.scan_tokens());
+        let mut statements = parser.parse_stmts().unwrap();
+
+        assert_eq!(statements.len(), 1);
+        // TODO yikes
+        assert_eq!(Ok(()), statements.drain(..).next().unwrap().execute());
+    }
+
+    #[test]
+    fn it_recognizes_valid_statements_expression_string() {
+        let mut scanner = Scanner::new("\"foo\";");
+        let parser = Parser::new(scanner.scan_tokens());
+        let mut statements = parser.parse_stmts().unwrap();
+
+        assert_eq!(statements.len(), 1);
+        // TODO yikes
+        assert_eq!(Ok(()), statements.drain(..).next().unwrap().execute());
+    }
+
+    #[test]
+    fn it_recognizes_valid_statements_expression_nil() {
+        let mut scanner = Scanner::new("nil;");
+        let parser = Parser::new(scanner.scan_tokens());
+        let mut statements = parser.parse_stmts().unwrap();
+
+        assert_eq!(statements.len(), 1);
+        // TODO yikes
+        assert_eq!(Ok(()), statements.drain(..).next().unwrap().execute());
+    }
+
+    #[test]
+    fn it_recognizes_invalid_statements_missing_semicolon() {
+        let mut scanner = Scanner::new("print nil");
+        let parser = Parser::new(scanner.scan_tokens());
+        assert_eq!(Err(RloxError::MissingSemicolon), parser.parse_stmts());
     }
 }
