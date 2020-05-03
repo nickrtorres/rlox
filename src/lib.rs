@@ -593,6 +593,8 @@ impl<'a> Parser<'a> {
         }
     }
 
+    // TODO: look into clippy lint:
+    // > `Vec<T>` is already on the heap, the boxing is unnecessary
     pub fn parse_stmts(&self) -> Result<Vec<Box<Stmt>>> {
         let mut statements: Vec<Box<Stmt>> = Vec::new();
 
