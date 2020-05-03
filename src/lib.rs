@@ -31,7 +31,7 @@ pub enum RloxError {
     NoPrevious,
     /// An '(' open parenthesis token was parsed, but no ')' close parenthesis
     /// token was found.
-    UnclosedParenthesis,
+    UnclosedParenthesis(usize),
     /// A quasi-unreachable block was reached! This is a nicer
     /// `unreachable!`---by nicer I mean it doesn't `panic`
     Unreachable,
@@ -55,7 +55,7 @@ pub enum RloxError {
     /// [wiki-NPN]: https://en.wikipedia.org/wiki/Polish_notation
     MismatchedOperands(TokenType, Object, Object),
     /// The statement entered is missing a semicolon
-    MissingSemicolon,
+    MissingSemicolon(usize),
 }
 
 impl fmt::Display for RloxError {
@@ -67,6 +67,8 @@ impl fmt::Display for RloxError {
                 "Error: invalid expression: {:?} {:?} {:?}",
                 left, op, right
             ),
+            Self::MissingSemicolon(line) => write!(f, "Error: {}: missing semicolon", line),
+            Self::UnclosedParenthesis(line) => write!(f, "Error: {}: unclosed parenthesis", line),
             _ => write!(f, "{:?}", self),
         }
     }
@@ -682,10 +684,12 @@ impl<'a> Parser<'a> {
 
     fn consume(&self, token_type: TokenType, _msg: &'static str) -> Result<()> {
         if !self.check(&token_type) {
+            let line = self.peek().ok_or(RloxError::Unreachable)?.line;
+
             match token_type {
                 // TODO: add line numbers to error variants
-                TokenType::RightParen => return Err(RloxError::UnclosedParenthesis),
-                TokenType::Semicolon => return Err(RloxError::MissingSemicolon),
+                TokenType::RightParen => return Err(RloxError::UnclosedParenthesis(line)),
+                TokenType::Semicolon => return Err(RloxError::MissingSemicolon(line)),
                 _ => return Err(RloxError::Unreachable),
             }
         }
@@ -1137,7 +1141,7 @@ mod tests {
     fn it_detects_unclosed_parenthesis() {
         let mut scanner = Scanner::new("(1");
         let parser = Parser::new(scanner.scan_tokens());
-        assert_eq!(Err(RloxError::UnclosedParenthesis), parser.parse());
+        assert_eq!(Err(RloxError::UnclosedParenthesis(1)), parser.parse());
     }
 
     #[test]
@@ -1363,6 +1367,6 @@ mod tests {
     fn it_recognizes_invalid_statements_missing_semicolon() {
         let mut scanner = Scanner::new("print nil");
         let parser = Parser::new(scanner.scan_tokens());
-        assert_eq!(Err(RloxError::MissingSemicolon), parser.parse_stmts());
+        assert_eq!(Err(RloxError::MissingSemicolon(1)), parser.parse_stmts());
     }
 }
