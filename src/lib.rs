@@ -14,6 +14,7 @@
 #![feature(str_strip)]
 #![feature(bool_to_option)]
 use std::cell::Cell;
+use std::collections::HashMap;
 use std::error;
 use std::fmt;
 use std::iter::Peekable;
@@ -56,6 +57,8 @@ pub enum RloxError {
     MismatchedOperands(TokenType, Object, Object),
     /// The statement entered is missing a semicolon
     MissingSemicolon(usize),
+    /// A non existent variable was queried
+    UndefinedVariable,
 }
 
 impl fmt::Display for RloxError {
@@ -435,7 +438,7 @@ pub enum Expr<'a> {
 /// underlying data.
 ///
 /// [java-object]: https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/lang/package-tree.html
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Object {
     /// Emulates a [Java `Boolean`](https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/lang/Boolean.html)
     Bool(bool),
@@ -454,6 +457,124 @@ impl fmt::Display for Object {
             Object::Nil => write!(f, "nil"),
             Object::Number(n) => write!(f, "{}", n),
             Object::String(s) => write!(f, "{}", s),
+        }
+    }
+}
+
+pub struct Interpreter<'a> {
+    environment: Environment<'a>,
+}
+
+impl<'a> Interpreter<'a> {
+    pub fn new() -> Self {
+        Interpreter {
+            environment: Environment::new(),
+        }
+    }
+
+    pub fn interpret(self, statements: Vec<Stmt>) -> Result<()> {
+        for statement in statements {
+            statement.execute()?;
+        }
+
+        Ok(())
+    }
+
+    fn execute(&mut self, statement: Stmt<'a>) -> Result<()> {
+        match statement {
+            Stmt::Expression(expr) => {
+                expr.evaluate()?;
+            }
+            Stmt::Print(expr) => {
+                let value = expr.evaluate()?;
+                println!("{}", value);
+            }
+            Stmt::Var(token, Some(expr)) => {
+                // Lifetime justification:
+                // `statement` is dropped at the end of this block. However, we
+                // only care about the token that `statement` has a reference to.
+                // We should be fine as long as the `token` reference lives long
+                // enough.
+                let value = expr.evaluate()?;
+                self.environment.define(&token.lexeme, value);
+            }
+            _ => {}
+        }
+
+        Ok(())
+    }
+
+    fn evaluate(&self, expr: Expr) -> Result<Object> {
+        match expr {
+            Expr::Binary(left_expr, token, right_expr) => {
+                let left = self.evaluate(*left_expr)?;
+                let right = self.evaluate(*right_expr)?;
+
+                match token.token_type {
+                    TokenType::Minus => match (&left, &right) {
+                        (Object::Number(l), Object::Number(r)) => Ok(Object::Number(l - r)),
+                        _ => Err(RloxError::MismatchedOperands(TokenType::Minus, left, right)),
+                    },
+                    TokenType::Slash => match (&left, &right) {
+                        (Object::Number(l), Object::Number(r)) => Ok(Object::Number(l / r)),
+                        _ => Err(RloxError::MismatchedOperands(TokenType::Slash, left, right)),
+                    },
+                    TokenType::Star => match (&left, &right) {
+                        (Object::Number(l), Object::Number(r)) => Ok(Object::Number(l * r)),
+                        _ => Err(RloxError::MismatchedOperands(TokenType::Star, left, right)),
+                    },
+                    TokenType::Plus => match (&left, &right) {
+                        (Object::Number(l), Object::Number(r)) => Ok(Object::Number(*l + *r)),
+                        (Object::String(l), Object::String(r)) => {
+                            let mut buffer = String::with_capacity(l.capacity() + r.capacity());
+                            buffer.push_str(l);
+                            buffer.push_str(r);
+                            Ok(Object::String(buffer))
+                        }
+                        _ => Err(RloxError::MismatchedOperands(TokenType::Plus, left, right)),
+                    },
+                    TokenType::Greater => match (&left, &right) {
+                        (Object::Number(l), Object::Number(r)) => Ok(Object::Bool(l > r)),
+                        _ => Err(RloxError::MismatchedOperands(TokenType::Plus, left, right)),
+                    },
+                    TokenType::GreaterEqual => match (&left, &right) {
+                        (Object::Number(l), Object::Number(r)) => Ok(Object::Bool(l >= r)),
+                        _ => Err(RloxError::MismatchedOperands(TokenType::Plus, left, right)),
+                    },
+                    TokenType::Less => match (&left, &right) {
+                        (Object::Number(l), Object::Number(r)) => Ok(Object::Bool(l < r)),
+                        _ => Err(RloxError::MismatchedOperands(TokenType::Plus, left, right)),
+                    },
+                    TokenType::LessEqual => match (&left, &right) {
+                        (Object::Number(l), Object::Number(r)) => Ok(Object::Bool(l <= r)),
+                        _ => Err(RloxError::MismatchedOperands(TokenType::Plus, left, right)),
+                    },
+                    TokenType::BangEqual => Ok(Object::Bool(left != right)),
+                    TokenType::EqualEqual => Ok(Object::Bool(left == right)),
+                    _ => Err(RloxError::Unreachable),
+                }
+            }
+            Expr::Unary(token, expr) => {
+                let right = self.evaluate(*expr)?;
+
+                if let TokenType::Minus = token.token_type {
+                    if let Object::Number(n) = right {
+                        return Ok(Object::Number(f64::from(-1) * n));
+                    }
+                } else if let TokenType::Bang = token.token_type {
+                    if let Object::Bool(b) = right {
+                        return Ok(Object::Bool(!b));
+                    } else {
+                        return Ok(Object::Bool(!false));
+                    }
+                }
+
+                Err(RloxError::Unreachable)
+            }
+            Expr::Literal(obj) => Ok(obj),
+            Expr::Grouping(group) => self.evaluate(*group),
+            Expr::Variable(token) => Ok(self.environment.get(token)?),
+            _ => Err(RloxError::Unreachable),
         }
     }
 }
@@ -537,7 +658,8 @@ impl<'a> Expr<'a> {
 pub enum Stmt<'a> {
     Expression(Expr<'a>),
     Print(Expr<'a>),
-    Var(&'a Token),
+    // Variable declaration w/o assignment defaults to Option::None
+    Var(&'a Token, Option<Expr<'a>>),
 }
 
 impl<'a> Stmt<'a> {
@@ -550,10 +672,37 @@ impl<'a> Stmt<'a> {
                 let value = expr.evaluate()?;
                 println!("{}", value);
             }
+            Self::Var(token, Some(expr)) => {}
             _ => {}
         }
 
         Ok(())
+    }
+}
+
+struct Environment<'a> {
+    values: HashMap<&'a str, Object>,
+}
+
+impl<'a> Environment<'a> {
+    fn new() -> Self {
+        Environment {
+            values: HashMap::new(),
+        }
+    }
+
+    fn define(&mut self, name: &'a str, value: Object) {
+        self.values.insert(name, value);
+    }
+
+    fn get(&self, name: &Token) -> Result<Object> {
+        if let Some(lexeme) = self.values.get(name.lexeme.as_str()) {
+            // TODO: The option is to clone here or put everything else on the
+            // heap.  For now, cloning seems easer.
+            Ok(lexeme.clone())
+        } else {
+            Err(RloxError::UndefinedVariable)
+        }
     }
 }
 
@@ -601,10 +750,37 @@ impl<'a> Parser<'a> {
         let mut statements: Vec<Stmt> = Vec::new();
 
         while !self.is_at_end() {
-            statements.push(self.statement()?);
+            statements.push(self.declaration()?);
         }
 
         Ok(statements)
+    }
+
+    fn declaration(&self) -> Result<Stmt> {
+        if self.match_tokens(vec![TokenType::Var]) {
+            return self.var_declaration().map_err(|e| {
+                self.synchronize();
+                e
+            });
+        }
+
+        self.statement().map_err(|e| {
+            self.synchronize();
+            e
+        })
+    }
+
+    fn var_declaration(&self) -> Result<Stmt> {
+        let name = self.consume(TokenType::Identifier)?;
+
+        let initializer = if self.match_tokens(vec![TokenType::Equal]) {
+            Some(*(self.expression()?))
+        } else {
+            None
+        };
+
+        let _ = self.consume(TokenType::Semicolon);
+        Ok(Stmt::Var(name, initializer))
     }
 
     fn statement(&self) -> Result<Stmt> {
@@ -615,15 +791,42 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn synchronize(&self) {
+        self.advance();
+
+        while !self.is_at_end() {
+            if let Ok(token) = self.previous() {
+                if token.token_type == TokenType::Semicolon {
+                    return;
+                }
+            }
+
+            if let Some(token) = self.peek() {
+                match token.token_type {
+                    TokenType::Class
+                    | TokenType::Fun
+                    | TokenType::Var
+                    | TokenType::If
+                    | TokenType::While
+                    | TokenType::Print
+                    | TokenType::Return => return,
+                    _ => {}
+                }
+            }
+
+            self.advance();
+        }
+    }
+
     fn print_statement(&self) -> Result<Stmt> {
         let value = self.expression()?;
-        self.consume(TokenType::Semicolon, "Expect ';' after value")?;
+        self.consume(TokenType::Semicolon)?;
         Ok(Stmt::Print(*value))
     }
 
     fn expression_statement(&self) -> Result<Stmt> {
         let value = self.expression()?;
-        self.consume(TokenType::Semicolon, "Expect ';' after value")?;
+        self.consume(TokenType::Semicolon)?;
         Ok(Stmt::Expression(*value))
     }
 
@@ -729,16 +932,20 @@ impl<'a> Parser<'a> {
             return rv;
         }
 
+        if self.match_tokens(vec![TokenType::Identifier]) {
+            return Ok(Box::new(Expr::Variable(self.previous()?)));
+        }
+
         if self.match_tokens(vec![TokenType::LeftParen]) {
             let expr = self.expression()?;
-            self.consume(TokenType::RightParen, "Expect ')' after expression.")?;
+            self.consume(TokenType::RightParen)?;
             return Ok(Box::new(Expr::Grouping(expr)));
         }
 
         Err(RloxError::UnimplementedToken)
     }
 
-    fn consume(&self, token_type: TokenType, _msg: &'static str) -> Result<()> {
+    fn consume(&self, token_type: TokenType) -> Result<&Token> {
         if !self.check(&token_type) {
             // We already consumed the problematic token.  We need to step back
             // for a second to grab the bad line number. It should be *impossible*
@@ -752,8 +959,8 @@ impl<'a> Parser<'a> {
             }
         }
 
-        self.advance();
-        Ok(())
+        // We just validated the next token. It must exist.
+        self.advance().ok_or(RloxError::Unreachable)
     }
 
     // TODO: this should not be a vec. it should be a slice or an iterator

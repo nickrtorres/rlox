@@ -1,5 +1,5 @@
 extern crate rlox;
-use rlox::{Parser, Scanner};
+use rlox::{Interpreter, Parser, Scanner};
 
 use program::perror;
 use std::env;
@@ -18,10 +18,10 @@ fn run<T: BufRead>(b: &mut T) -> Result<()> {
     let mut scanner = Scanner::new(&buf);
     let parser = Parser::new(scanner.scan_tokens());
     let statements = parser.parse_stmts()?;
+    let interpreter = Interpreter::new();
 
-    for statement in statements {
-        statement.execute()?;
-    }
+    // for some reason return interpreter.interpret(statements) doesn't work ?
+    interpreter.interpret(statements)?;
 
     Ok(())
 }
