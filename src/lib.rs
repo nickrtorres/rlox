@@ -1122,7 +1122,7 @@ mod tests {
 
     #[test]
     fn it_can_scan_numerous_tokens_expression() {
-        let mut scanner = Scanner::new("var breakfast;".to_owned());
+        let scanner = Scanner::new("var breakfast;".to_owned());
         let actual = scanner.scan_tokens();
         // 'var' , 'breakfast' , ';' , 'EOF'
         assert_eq!(4, actual.len());
@@ -1141,7 +1141,7 @@ mod tests {
 
     #[test]
     fn it_can_scan_numerous_tokens_assignment() {
-        let mut scanner = Scanner::new("var breakfast = \"bagels\";".to_owned());
+        let scanner = Scanner::new("var breakfast = \"bagels\";".to_owned());
         let actual = scanner.scan_tokens();
         // 'var' , 'breakfast' , '=' , 'bagels' , ';' , 'EOF'
         assert_eq!(6, actual.len());
@@ -1166,7 +1166,7 @@ mod tests {
 
     #[test]
     fn it_can_scan_numerous_tokens_conditional_with_newlines() {
-        let mut scanner = Scanner::new(
+        let scanner = Scanner::new(
             "if (condition) {\n  print \"yes\";\n} else {\n  print \"no\";\n}\n".to_owned(),
         );
         let actual = scanner.scan_tokens();
@@ -1207,7 +1207,7 @@ mod tests {
 
     #[test]
     fn it_can_advance_over_token_iterator() {
-        let mut scanner = Scanner::new("var breakfast;".to_owned());
+        let scanner = Scanner::new("var breakfast;".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
 
         assert_eq!(
@@ -1235,7 +1235,7 @@ mod tests {
 
     #[test]
     fn it_can_parse_a_float() {
-        let mut scanner = Scanner::new("1".to_owned());
+        let scanner = Scanner::new("1".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         assert_eq!(
             Expr::Literal(Object::Number(1 as f64)),
@@ -1245,21 +1245,21 @@ mod tests {
 
     #[test]
     fn it_can_parse_a_bool() {
-        let mut scanner = Scanner::new("true".to_owned());
+        let scanner = Scanner::new("true".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         assert_eq!(Expr::Literal(Object::Bool(true)), *parser.parse().unwrap());
     }
 
     #[test]
     fn it_can_parse_nil() {
-        let mut scanner = Scanner::new("nil".to_owned());
+        let scanner = Scanner::new("nil".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         assert_eq!(Expr::Literal(Object::Nil), *parser.parse().unwrap());
     }
 
     #[test]
     fn it_can_parse_a_unary_expression() {
-        let mut scanner = Scanner::new("-1".to_owned());
+        let scanner = Scanner::new("-1".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         assert_eq!(
             Expr::Unary(
@@ -1272,7 +1272,7 @@ mod tests {
 
     #[test]
     fn it_can_parse_a_binary_expression() {
-        let mut scanner = Scanner::new("1 + 2".to_owned());
+        let scanner = Scanner::new("1 + 2".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         assert_eq!(
             Expr::Binary(
@@ -1286,7 +1286,7 @@ mod tests {
 
     #[test]
     fn it_can_parse_a_grouping_expression() {
-        let mut scanner = Scanner::new("(1)".to_owned());
+        let scanner = Scanner::new("(1)".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         assert_eq!(
             Expr::Grouping(Box::new(Expr::Literal(Object::Number(1 as f64)))),
@@ -1296,7 +1296,7 @@ mod tests {
 
     #[test]
     fn it_can_parse_a_compound_expression() {
-        let mut scanner = Scanner::new("(1 + 2) * 3".to_owned());
+        let scanner = Scanner::new("(1 + 2) * 3".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
 
         let plus = Token::new(TokenType::Plus, "+".to_owned(), 1);
@@ -1318,7 +1318,7 @@ mod tests {
 
     #[test]
     fn it_can_parse_an_arbitrarily_complex_expression() {
-        let mut scanner = Scanner::new("(1 + 2) * 3 > (4 - 5) / 6".to_owned());
+        let scanner = Scanner::new("(1 + 2) * 3 > (4 - 5) / 6".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
 
         let plus = Token::new(TokenType::Plus, "+".to_owned(), 1);
@@ -1357,24 +1357,24 @@ mod tests {
 
     #[test]
     fn it_detects_unclosed_parenthesis() {
-        let mut scanner = Scanner::new("(1".to_owned());
+        let scanner = Scanner::new("(1".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         assert_eq!(Err(RloxError::UnclosedParenthesis(1)), parser.parse());
     }
 
     #[test]
     fn it_is_a_wip() {
-        let mut scanner = Scanner::new("var foo = \"bar\";".to_owned());
+        let scanner = Scanner::new("var foo = \"bar\";".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         assert_eq!(Err(RloxError::UnimplementedToken), parser.parse());
     }
 
     #[test]
     fn it_can_evaluate_a_unary_expression() {
-        let mut scanner = Scanner::new("-1".to_owned());
+        let scanner = Scanner::new("-1".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         let expr = parser.parse().unwrap();
-        let mut interpreter = Interpreter::new();
+        let interpreter = Interpreter::new();
         assert_eq!(
             Ok(Object::Number(f64::from(-1))),
             interpreter.evaluate(*expr)
@@ -1383,27 +1383,27 @@ mod tests {
 
     #[test]
     fn it_can_evaluate_a_literal_expression() {
-        let mut scanner = Scanner::new("true".to_owned());
+        let scanner = Scanner::new("true".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         let expr = parser.parse().unwrap();
-        let mut interpreter = Interpreter::new();
+        let interpreter = Interpreter::new();
         assert_eq!(Ok(Object::Bool(true)), interpreter.evaluate(*expr));
     }
 
     #[test]
     fn it_can_evaluate_a_literal_expression_nil() {
-        let mut scanner = Scanner::new("nil".to_owned());
+        let scanner = Scanner::new("nil".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
-        let mut interpreter = Interpreter::new();
+        let interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(Ok(Object::Nil), interpreter.evaluate(*expr));
     }
 
     #[test]
     fn it_can_evaluate_a_binary_expression_mult() {
-        let mut scanner = Scanner::new("6 * 7".to_owned());
+        let scanner = Scanner::new("6 * 7".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
-        let mut interpreter = Interpreter::new();
+        let interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(
             Ok(Object::Number(f64::from(42))),
@@ -1413,9 +1413,9 @@ mod tests {
 
     #[test]
     fn it_can_evaluate_a_binary_expression_div() {
-        let mut scanner = Scanner::new("8 / 4".to_owned());
+        let scanner = Scanner::new("8 / 4".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
-        let mut interpreter = Interpreter::new();
+        let interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(
             Ok(Object::Number(f64::from(8 / 4))),
@@ -1425,27 +1425,27 @@ mod tests {
 
     #[test]
     fn it_can_evaluate_a_binary_expression_complex_notequal() {
-        let mut scanner = Scanner::new("2 * 3 - 4 != 5 * 6 - 7".to_owned());
+        let scanner = Scanner::new("2 * 3 - 4 != 5 * 6 - 7".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
-        let mut interpreter = Interpreter::new();
+        let interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(Ok(Object::Bool(true)), interpreter.evaluate(*expr));
     }
 
     #[test]
     fn it_can_evaluate_a_binary_expression_complex_equal() {
-        let mut scanner = Scanner::new("(4 + 4) == (2 * 2 * 2)".to_owned());
+        let scanner = Scanner::new("(4 + 4) == (2 * 2 * 2)".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
-        let mut interpreter = Interpreter::new();
+        let interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(Ok(Object::Bool(true)), interpreter.evaluate(*expr));
     }
 
     #[test]
     fn it_can_evaluate_string_concatenation() {
-        let mut scanner = Scanner::new("\"foo\" + \"bar\"".to_owned());
+        let scanner = Scanner::new("\"foo\" + \"bar\"".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
-        let mut interpreter = Interpreter::new();
+        let interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(
             Ok(Object::String(String::from("foobar"))),
@@ -1455,9 +1455,9 @@ mod tests {
 
     #[test]
     fn it_identifies_mismatched_operands_plus() {
-        let mut scanner = Scanner::new("1 + \"foo\"".to_owned());
+        let scanner = Scanner::new("1 + \"foo\"".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
-        let mut interpreter = Interpreter::new();
+        let interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(
             Err(RloxError::MismatchedOperands(
@@ -1471,9 +1471,9 @@ mod tests {
 
     #[test]
     fn it_identifies_mismatched_operands_minus() {
-        let mut scanner = Scanner::new("1 - \"bar\"".to_owned());
+        let scanner = Scanner::new("1 - \"bar\"".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
-        let mut interpreter = Interpreter::new();
+        let interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(
             Err(RloxError::MismatchedOperands(
@@ -1487,9 +1487,9 @@ mod tests {
 
     #[test]
     fn it_identifies_mismatched_operands_star() {
-        let mut scanner = Scanner::new("true * 1".to_owned());
+        let scanner = Scanner::new("true * 1".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
-        let mut interpreter = Interpreter::new();
+        let interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(
             Err(RloxError::MismatchedOperands(
@@ -1503,9 +1503,9 @@ mod tests {
 
     #[test]
     fn it_identifies_mismatched_operands_slash() {
-        let mut scanner = Scanner::new("1 / nil".to_owned());
+        let scanner = Scanner::new("1 / nil".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
-        let mut interpreter = Interpreter::new();
+        let interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(
             Err(RloxError::MismatchedOperands(
@@ -1519,7 +1519,7 @@ mod tests {
 
     #[test]
     fn it_recognizes_valid_statements_print_arithmetic() {
-        let mut scanner = Scanner::new("print 1 + 1;".to_owned());
+        let scanner = Scanner::new("print 1 + 1;".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         let mut statements = parser.parse_stmts().unwrap();
         let mut interpreter = Interpreter::new();
@@ -1533,7 +1533,7 @@ mod tests {
 
     #[test]
     fn it_recognizes_valid_statements_print_boolean() {
-        let mut scanner = Scanner::new("print true;".to_owned());
+        let scanner = Scanner::new("print true;".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         let mut statements = parser.parse_stmts().unwrap();
         let mut interpreter = Interpreter::new();
@@ -1547,7 +1547,7 @@ mod tests {
 
     #[test]
     fn it_recognizes_valid_statements_print_string() {
-        let mut scanner = Scanner::new("print \"foo\";".to_owned());
+        let scanner = Scanner::new("print \"foo\";".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         let mut statements = parser.parse_stmts().unwrap();
         let mut interpreter = Interpreter::new();
@@ -1561,7 +1561,7 @@ mod tests {
 
     #[test]
     fn it_recognizes_valid_statements_print_nil() {
-        let mut scanner = Scanner::new("print nil;".to_owned());
+        let scanner = Scanner::new("print nil;".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         let mut statements = parser.parse_stmts().unwrap();
         let mut interpreter = Interpreter::new();
@@ -1575,7 +1575,7 @@ mod tests {
 
     #[test]
     fn it_recognizes_valid_statements_expression_arithmetic() {
-        let mut scanner = Scanner::new("1 + 1;".to_owned());
+        let scanner = Scanner::new("1 + 1;".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         let mut statements = parser.parse_stmts().unwrap();
         let mut interpreter = Interpreter::new();
@@ -1589,7 +1589,7 @@ mod tests {
 
     #[test]
     fn it_recognizes_valid_statements_expression_boolean() {
-        let mut scanner = Scanner::new("true;".to_owned());
+        let scanner = Scanner::new("true;".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         let mut statements = parser.parse_stmts().unwrap();
         let mut interpreter = Interpreter::new();
@@ -1604,7 +1604,7 @@ mod tests {
 
     #[test]
     fn it_recognizes_valid_statements_expression_string() {
-        let mut scanner = Scanner::new("\"foo\";".to_owned());
+        let scanner = Scanner::new("\"foo\";".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         let mut statements = parser.parse_stmts().unwrap();
         let mut interpreter = Interpreter::new();
@@ -1619,7 +1619,7 @@ mod tests {
 
     #[test]
     fn it_recognizes_valid_statements_expression_nil() {
-        let mut scanner = Scanner::new("nil;".to_owned());
+        let scanner = Scanner::new("nil;".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         let mut statements = parser.parse_stmts().unwrap();
         let mut interpreter = Interpreter::new();
@@ -1634,7 +1634,7 @@ mod tests {
 
     #[test]
     fn it_recognizes_invalid_statements_missing_semicolon() {
-        let mut scanner = Scanner::new("print nil".to_owned());
+        let scanner = Scanner::new("print nil".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         assert_eq!(Err(RloxError::MissingSemicolon(1)), parser.parse_stmts());
     }
