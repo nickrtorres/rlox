@@ -77,7 +77,8 @@ impl fmt::Display for RloxError {
 
 impl error::Error for RloxError {}
 
-#[derive(Debug, PartialEq)]
+// TODO try to make this not clone at some point.
+#[derive(Clone, Debug, PartialEq)]
 pub enum TokenType {
     // Single-character tokens
     LeftParen,
@@ -209,7 +210,9 @@ impl TokenType {
     }
 }
 
-#[derive(Debug, PartialEq)]
+/// Deriving clone to avoid lifetime infection. This type is usually pretty cheap.
+/// TODO: revisit this
+#[derive(Clone, Debug, PartialEq)]
 pub struct Token {
     token_type: TokenType,
     lexeme: String,
@@ -233,18 +236,56 @@ impl fmt::Display for Token {
     }
 }
 
-pub struct Scanner<'a> {
+use std::mem;
+
+/// Taken almost *as-is* from [StackOverflow][answer]. Modification:
+/// chars is Peekable.
+/// TODO: is this really needed? It'd be nice if there was a way to do this
+/// without unsafe.
+///
+/// BEGIN *taken_from_stack_overflow*
+/// "I believe this struct to be safe because the String is
+/// heap-allocated (stable address) and will never be modified
+/// (stable address). `chars` will not outlive the struct, so
+/// lying about the lifetime should be fine."
+///
+///
+/// [answer]: https://stackoverflow.com/a/43958470
+struct OwningChars {
+    _s: String,
+    chars: Peekable<Chars<'static>>,
+}
+
+impl OwningChars {
+    fn new(s: String) -> Self {
+        let chars = unsafe { mem::transmute(s.chars().peekable()) };
+        OwningChars { _s: s, chars }
+    }
+
+    fn peek(&mut self) -> Option<&char> {
+        self.chars.peek()
+    }
+}
+
+impl Iterator for OwningChars {
+    type Item = char;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.chars.next()
+    }
+}
+// END *taken_from_stack_overflow*
+
+pub struct Scanner {
     // Scratch pad for Tokens
     scratch: String,
-    chars: Peekable<Chars<'a>>,
-
+    chars: OwningChars,
     // Consider making tokens, start and current Cell's to avoid
     // having to hold a mut Scanner
     tokens: Vec<Token>,
     line: usize,
 }
 
-impl<'a> Scanner<'a> {
+impl Scanner {
     /// Creates a new `Scanner` whose referent is `source`.
     ///
     /// Note, a `Scanner` is only valid for the lifetime of source since a
@@ -252,18 +293,18 @@ impl<'a> Scanner<'a> {
     /// `String`. Rather than having the `Scanner`s own Strings, just store a
     /// shared reference to the source input as a `Peekable<Chars>` iterator
     #[must_use]
-    pub fn new(source: &'a str) -> Self {
+    pub fn new(source: String) -> Self {
         Scanner {
             // cautiously optimistic allocation
             scratch: String::with_capacity(1024),
-            chars: source.chars().peekable(),
+            chars: OwningChars::new(source),
             tokens: Vec::new(),
             line: 1,
         }
     }
 
     /// Returns the list of Tokens owned by self
-    pub fn scan_tokens<'s>(&'s mut self) -> &'s Vec<Token> {
+    pub fn scan_tokens<'s>(mut self) -> Vec<Token> {
         while !self.is_at_end() {
             self.scan_token();
             self.scratch.clear();
@@ -272,7 +313,7 @@ impl<'a> Scanner<'a> {
         self.tokens
             .push(Token::new(TokenType::Eof, String::new(), self.line));
 
-        &self.tokens
+        self.tokens
     }
 
     fn is_at_end(&mut self) -> bool {
@@ -419,12 +460,12 @@ impl<'a> Scanner<'a> {
 /// - Creates a subclass for each variant (i.e. Binary, Grouping, Literal, Unary)
 /// - Uses the visitor pattern to dispatch the correct method for each type.
 #[derive(Debug, PartialEq)]
-pub enum Expr<'a> {
-    Binary(Box<Expr<'a>>, &'a Token, Box<Expr<'a>>),
-    Grouping(Box<Expr<'a>>),
+pub enum Expr {
+    Binary(Box<Expr>, Token, Box<Expr>),
+    Grouping(Box<Expr>),
     Literal(Object),
-    Unary(&'a Token, Box<Expr<'a>>),
-    Variable(&'a Token),
+    Unary(Token, Box<Expr>),
+    Variable(Token),
 }
 
 /// Emulates Java's object type for literals
@@ -461,32 +502,32 @@ impl fmt::Display for Object {
     }
 }
 
-pub struct Interpreter<'a> {
-    environment: Environment<'a>,
+pub struct Interpreter {
+    environment: Environment,
 }
 
-impl<'a> Interpreter<'a> {
+impl Interpreter {
     pub fn new() -> Self {
         Interpreter {
             environment: Environment::new(),
         }
     }
 
-    pub fn interpret(self, statements: Vec<Stmt>) -> Result<()> {
+    pub fn interpret(&mut self, statements: Vec<Stmt>) -> Result<()> {
         for statement in statements {
-            statement.execute()?;
+            self.execute(statement)?;
         }
 
         Ok(())
     }
 
-    fn execute(&mut self, statement: Stmt<'a>) -> Result<()> {
+    fn execute(&mut self, statement: Stmt) -> Result<()> {
         match statement {
             Stmt::Expression(expr) => {
-                expr.evaluate()?;
+                self.evaluate(expr)?;
             }
             Stmt::Print(expr) => {
-                let value = expr.evaluate()?;
+                let value = self.evaluate(expr)?;
                 println!("{}", value);
             }
             Stmt::Var(token, Some(expr)) => {
@@ -495,8 +536,8 @@ impl<'a> Interpreter<'a> {
                 // only care about the token that `statement` has a reference to.
                 // We should be fine as long as the `token` reference lives long
                 // enough.
-                let value = expr.evaluate()?;
-                self.environment.define(&token.lexeme, value);
+                let value = self.evaluate(expr)?;
+                self.environment.define(token.lexeme, value);
             }
             _ => {}
         }
@@ -571,137 +612,47 @@ impl<'a> Interpreter<'a> {
 
                 Err(RloxError::Unreachable)
             }
-            Expr::Literal(obj) => Ok(obj),
+            Expr::Literal(obj) => Ok(obj.clone()),
             Expr::Grouping(group) => self.evaluate(*group),
-            Expr::Variable(token) => Ok(self.environment.get(token)?),
-            _ => Err(RloxError::Unreachable),
-        }
-    }
-}
-
-impl<'a> Expr<'a> {
-    fn evaluate(self) -> Result<Object> {
-        match self {
-            Expr::Binary(left_expr, token, right_expr) => {
-                let left = left_expr.evaluate()?;
-                let right = right_expr.evaluate()?;
-
-                match token.token_type {
-                    TokenType::Minus => match (&left, &right) {
-                        (Object::Number(l), Object::Number(r)) => Ok(Object::Number(l - r)),
-                        _ => Err(RloxError::MismatchedOperands(TokenType::Minus, left, right)),
-                    },
-                    TokenType::Slash => match (&left, &right) {
-                        (Object::Number(l), Object::Number(r)) => Ok(Object::Number(l / r)),
-                        _ => Err(RloxError::MismatchedOperands(TokenType::Slash, left, right)),
-                    },
-                    TokenType::Star => match (&left, &right) {
-                        (Object::Number(l), Object::Number(r)) => Ok(Object::Number(l * r)),
-                        _ => Err(RloxError::MismatchedOperands(TokenType::Star, left, right)),
-                    },
-                    TokenType::Plus => match (&left, &right) {
-                        (Object::Number(l), Object::Number(r)) => Ok(Object::Number(*l + *r)),
-                        (Object::String(l), Object::String(r)) => {
-                            let mut buffer = String::with_capacity(l.capacity() + r.capacity());
-                            buffer.push_str(l);
-                            buffer.push_str(r);
-                            Ok(Object::String(buffer))
-                        }
-                        _ => Err(RloxError::MismatchedOperands(TokenType::Plus, left, right)),
-                    },
-                    TokenType::Greater => match (&left, &right) {
-                        (Object::Number(l), Object::Number(r)) => Ok(Object::Bool(l > r)),
-                        _ => Err(RloxError::MismatchedOperands(TokenType::Plus, left, right)),
-                    },
-                    TokenType::GreaterEqual => match (&left, &right) {
-                        (Object::Number(l), Object::Number(r)) => Ok(Object::Bool(l >= r)),
-                        _ => Err(RloxError::MismatchedOperands(TokenType::Plus, left, right)),
-                    },
-                    TokenType::Less => match (&left, &right) {
-                        (Object::Number(l), Object::Number(r)) => Ok(Object::Bool(l < r)),
-                        _ => Err(RloxError::MismatchedOperands(TokenType::Plus, left, right)),
-                    },
-                    TokenType::LessEqual => match (&left, &right) {
-                        (Object::Number(l), Object::Number(r)) => Ok(Object::Bool(l <= r)),
-                        _ => Err(RloxError::MismatchedOperands(TokenType::Plus, left, right)),
-                    },
-                    TokenType::BangEqual => Ok(Object::Bool(left != right)),
-                    TokenType::EqualEqual => Ok(Object::Bool(left == right)),
-                    _ => Err(RloxError::Unreachable),
-                }
-            }
-            Expr::Unary(token, expr) => {
-                let right = expr.evaluate()?;
-
-                if let TokenType::Minus = token.token_type {
-                    if let Object::Number(n) = right {
-                        return Ok(Object::Number(f64::from(-1) * n));
-                    }
-                } else if let TokenType::Bang = token.token_type {
-                    if let Object::Bool(b) = right {
-                        return Ok(Object::Bool(!b));
-                    } else {
-                        return Ok(Object::Bool(!false));
-                    }
-                }
-
-                Err(RloxError::Unreachable)
-            }
-            Expr::Literal(obj) => Ok(obj),
-            Expr::Grouping(group) => group.evaluate(),
-            _ => Err(RloxError::Unreachable),
+            Expr::Variable(token) => Ok(self.environment.get(&token)?),
         }
     }
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Stmt<'a> {
-    Expression(Expr<'a>),
-    Print(Expr<'a>),
+pub enum Stmt {
+    Expression(Expr),
+    Print(Expr),
     // Variable declaration w/o assignment defaults to Option::None
-    Var(&'a Token, Option<Expr<'a>>),
+    Var(Token, Option<Expr>),
 }
 
-impl<'a> Stmt<'a> {
-    pub fn execute(self) -> Result<()> {
-        match self {
-            Self::Expression(expr) => {
-                expr.evaluate()?;
-            }
-            Self::Print(expr) => {
-                let value = expr.evaluate()?;
-                println!("{}", value);
-            }
-            Self::Var(token, Some(expr)) => {}
-            _ => {}
-        }
-
-        Ok(())
-    }
+struct Environment {
+    values: HashMap<String, Object>,
 }
 
-struct Environment<'a> {
-    values: HashMap<&'a str, Object>,
-}
-
-impl<'a> Environment<'a> {
+impl Environment {
     fn new() -> Self {
         Environment {
             values: HashMap::new(),
         }
     }
 
-    fn define(&mut self, name: &'a str, value: Object) {
+    fn define(&mut self, name: String, value: Object) {
         self.values.insert(name, value);
+        assert!(self.values.len() > 0);
     }
 
     fn get(&self, name: &Token) -> Result<Object> {
-        if let Some(lexeme) = self.values.get(name.lexeme.as_str()) {
-            // TODO: The option is to clone here or put everything else on the
-            // heap.  For now, cloning seems easer.
-            Ok(lexeme.clone())
-        } else {
-            Err(RloxError::UndefinedVariable)
+        match self.values.get(name.lexeme.as_str()) {
+            Some(s) => Ok(s.clone()),
+            None => {
+                assert!(!self.values.is_empty());
+                for (k, v) in &self.values {
+                    eprintln!("{}, {}", k, v);
+                }
+                Err(RloxError::UndefinedVariable)
+            }
         }
     }
 }
@@ -730,23 +681,23 @@ impl<'a> Environment<'a> {
 /// mutability to manage it's internal cursor for the current, next, and
 /// previous tokens. This is an implementation detail most end users don't need
 /// to worry about.
-pub struct Parser<'a> {
-    tokens: &'a Vec<Token>,
+pub struct Parser {
+    tokens: Vec<Token>,
     /// cursor is an implementation detail end users shouldn't worry about. Use
     /// interior mutability here to avoid forcing the user to hold a mutable Parser.
     cursor: Cell<usize>,
 }
 
-impl<'a> Parser<'a> {
+impl Parser {
     #[must_use]
-    pub fn new(tokens: &'a Vec<Token>) -> Self {
+    pub fn new(tokens: Vec<Token>) -> Self {
         Parser {
             tokens,
             cursor: Cell::new(0),
         }
     }
 
-    pub fn parse_stmts(&self) -> Result<Vec<Stmt>> {
+    pub fn parse_stmts(self) -> Result<Vec<Stmt>> {
         let mut statements: Vec<Stmt> = Vec::new();
 
         while !self.is_at_end() {
@@ -839,7 +790,7 @@ impl<'a> Parser<'a> {
         self.equality()
     }
 
-    fn equality(&'a self) -> Result<Box<Expr>> {
+    fn equality(&self) -> Result<Box<Expr>> {
         let mut expr = self.comparison()?;
 
         while self.match_tokens(vec![TokenType::BangEqual, TokenType::EqualEqual]) {
@@ -945,7 +896,7 @@ impl<'a> Parser<'a> {
         Err(RloxError::UnimplementedToken)
     }
 
-    fn consume(&self, token_type: TokenType) -> Result<&Token> {
+    fn consume(&self, token_type: TokenType) -> Result<Token> {
         if !self.check(&token_type) {
             // We already consumed the problematic token.  We need to step back
             // for a second to grab the bad line number. It should be *impossible*
@@ -994,14 +945,15 @@ impl<'a> Parser<'a> {
         self.tokens.get(self.cursor.get())
     }
 
-    fn previous(&self) -> Result<&Token> {
+    fn previous(&self) -> Result<Token> {
         debug_assert!(self.cursor.get() > 0);
         self.tokens
             .get(self.cursor.get() - 1)
             .ok_or(RloxError::NoPrevious)
+            .and_then(|t| Ok(t.clone()))
     }
 
-    fn advance(&self) -> Option<&Token> {
+    fn advance(&self) -> Option<Token> {
         if !self.is_at_end() {
             let old = self.cursor.get();
             self.cursor.replace(old + 1);
@@ -1016,7 +968,7 @@ mod tests {
     use super::*;
     #[test]
     fn it_can_advance_through_stream() {
-        let mut scanner = Scanner::new("true;");
+        let mut scanner = Scanner::new("true;".to_owned());
         assert_eq!(Some('t'), scanner.advance());
         assert_eq!(Some('r'), scanner.advance());
         assert_eq!(Some('u'), scanner.advance());
@@ -1028,7 +980,7 @@ mod tests {
 
     #[test]
     fn it_can_peek_without_advancing() {
-        let mut scanner = Scanner::new("true;");
+        let mut scanner = Scanner::new("true;".to_owned());
         assert_eq!(Some('t'), scanner.advance());
         assert_eq!(Some('r'), scanner.peek());
         assert_eq!(Some('r'), scanner.advance());
@@ -1045,7 +997,7 @@ mod tests {
     // TODO: This test reaches into the guts of Scanner a bit more than I'd like.
     #[test]
     fn it_can_scan_a_boolean_token() {
-        let mut scanner = Scanner::new("true");
+        let mut scanner = Scanner::new("true".to_owned());
         scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
     }
@@ -1053,7 +1005,7 @@ mod tests {
     // Induction: assumes all reserved words work the same
     #[test]
     fn it_can_scan_a_reserved_word() {
-        let mut scanner = Scanner::new("return");
+        let mut scanner = Scanner::new("return".to_owned());
         scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
 
@@ -1064,7 +1016,7 @@ mod tests {
 
     #[test]
     fn it_can_scan_a_non_reserved_word() {
-        let mut scanner = Scanner::new("foobar");
+        let mut scanner = Scanner::new("foobar".to_owned());
         scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
 
@@ -1076,7 +1028,7 @@ mod tests {
     // Induction: assumes all single character tokens work the same
     #[test]
     fn it_can_scan_a_single_character_token() {
-        let mut scanner = Scanner::new("(");
+        let mut scanner = Scanner::new("(".to_owned());
         scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
 
@@ -1088,7 +1040,7 @@ mod tests {
     // Induction: assumes all dual character tokens work the same
     #[test]
     fn it_can_scan_a_dual_character_token() {
-        let mut scanner = Scanner::new("!=");
+        let mut scanner = Scanner::new("!=".to_owned());
         scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
 
@@ -1099,14 +1051,14 @@ mod tests {
 
     #[test]
     fn it_ignores_comments() {
-        let mut scanner = Scanner::new("//");
+        let mut scanner = Scanner::new("//".to_owned());
         scanner.scan_token();
         assert_eq!(0, scanner.tokens.len());
     }
 
     #[test]
     fn it_scans_literal_slashes() {
-        let mut scanner = Scanner::new("/");
+        let mut scanner = Scanner::new("/".to_owned());
         scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
 
@@ -1117,7 +1069,7 @@ mod tests {
 
     #[test]
     fn it_increments_linecount() {
-        let mut scanner = Scanner::new("\n");
+        let mut scanner = Scanner::new("\n".to_owned());
         let line = scanner.line;
         scanner.scan_token();
         assert_eq!(line + 1, scanner.line);
@@ -1126,14 +1078,14 @@ mod tests {
     // Induction: assumes it works for all don't cares
     #[test]
     fn it_ignores_dont_care_tokens() {
-        let mut scanner = Scanner::new("\t");
+        let mut scanner = Scanner::new("\t".to_owned());
         scanner.scan_token();
         assert_eq!(0, scanner.tokens.len());
     }
 
     #[test]
     fn it_can_scan_string_literals() {
-        let mut scanner = Scanner::new("\"foo\"");
+        let mut scanner = Scanner::new("\"foo\"".to_owned());
         scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
 
@@ -1148,7 +1100,7 @@ mod tests {
 
     #[test]
     fn it_can_scan_integers() {
-        let mut scanner = Scanner::new("42");
+        let mut scanner = Scanner::new("42".to_owned());
         scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
 
@@ -1159,7 +1111,7 @@ mod tests {
 
     #[test]
     fn it_can_scan_floating_point_numbers() {
-        let mut scanner = Scanner::new("3.14");
+        let mut scanner = Scanner::new("3.14".to_owned());
         scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
 
@@ -1170,7 +1122,7 @@ mod tests {
 
     #[test]
     fn it_can_scan_numerous_tokens_expression() {
-        let mut scanner = Scanner::new("var breakfast;");
+        let mut scanner = Scanner::new("var breakfast;".to_owned());
         let actual = scanner.scan_tokens();
         // 'var' , 'breakfast' , ';' , 'EOF'
         assert_eq!(4, actual.len());
@@ -1189,7 +1141,7 @@ mod tests {
 
     #[test]
     fn it_can_scan_numerous_tokens_assignment() {
-        let mut scanner = Scanner::new("var breakfast = \"bagels\";");
+        let mut scanner = Scanner::new("var breakfast = \"bagels\";".to_owned());
         let actual = scanner.scan_tokens();
         // 'var' , 'breakfast' , '=' , 'bagels' , ';' , 'EOF'
         assert_eq!(6, actual.len());
@@ -1214,8 +1166,9 @@ mod tests {
 
     #[test]
     fn it_can_scan_numerous_tokens_conditional_with_newlines() {
-        let mut scanner =
-            Scanner::new("if (condition) {\n  print \"yes\";\n} else {\n  print \"no\";\n}\n");
+        let mut scanner = Scanner::new(
+            "if (condition) {\n  print \"yes\";\n} else {\n  print \"no\";\n}\n".to_owned(),
+        );
         let actual = scanner.scan_tokens();
         // 'if' , '(' , 'condition' , ')' , '{' , 'print' , 'yes' , ';' , '}' , 'else' , '{' ,
         // 'print' , 'no' , ';' , '}' , 'EOF'
@@ -1254,15 +1207,15 @@ mod tests {
 
     #[test]
     fn it_can_advance_over_token_iterator() {
-        let mut scanner = Scanner::new("var breakfast;");
+        let mut scanner = Scanner::new("var breakfast;".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
 
         assert_eq!(
-            Some(&Token::new(TokenType::Var, String::from("var"), 1)),
+            Some(Token::new(TokenType::Var, String::from("var"), 1)),
             parser.advance()
         );
         assert_eq!(
-            Some(&Token::new(
+            Some(Token::new(
                 TokenType::Identifier,
                 String::from("breakfast"),
                 1
@@ -1270,19 +1223,19 @@ mod tests {
             parser.advance()
         );
         assert_eq!(
-            Some(&Token::new(TokenType::Semicolon, String::from(";"), 1)),
+            Some(Token::new(TokenType::Semicolon, String::from(";"), 1)),
             parser.advance()
         );
 
         assert_eq!(
-            Some(&Token::new(TokenType::Semicolon, String::from(";"), 1)),
+            Some(Token::new(TokenType::Semicolon, String::from(";"), 1)),
             parser.advance()
         );
     }
 
     #[test]
     fn it_can_parse_a_float() {
-        let mut scanner = Scanner::new("1");
+        let mut scanner = Scanner::new("1".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         assert_eq!(
             Expr::Literal(Object::Number(1 as f64)),
@@ -1292,25 +1245,25 @@ mod tests {
 
     #[test]
     fn it_can_parse_a_bool() {
-        let mut scanner = Scanner::new("true");
+        let mut scanner = Scanner::new("true".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         assert_eq!(Expr::Literal(Object::Bool(true)), *parser.parse().unwrap());
     }
 
     #[test]
     fn it_can_parse_nil() {
-        let mut scanner = Scanner::new("nil");
+        let mut scanner = Scanner::new("nil".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         assert_eq!(Expr::Literal(Object::Nil), *parser.parse().unwrap());
     }
 
     #[test]
     fn it_can_parse_a_unary_expression() {
-        let mut scanner = Scanner::new("-1");
+        let mut scanner = Scanner::new("-1".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         assert_eq!(
             Expr::Unary(
-                &Token::new(TokenType::Minus, "-".to_owned(), 1),
+                Token::new(TokenType::Minus, "-".to_owned(), 1),
                 Box::new(Expr::Literal(Object::Number(1 as f64)))
             ),
             *parser.parse().unwrap()
@@ -1319,12 +1272,12 @@ mod tests {
 
     #[test]
     fn it_can_parse_a_binary_expression() {
-        let mut scanner = Scanner::new("1 + 2");
+        let mut scanner = Scanner::new("1 + 2".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         assert_eq!(
             Expr::Binary(
                 Box::new(Expr::Literal(Object::Number(1 as f64))),
-                &Token::new(TokenType::Plus, "+".to_owned(), 1),
+                Token::new(TokenType::Plus, "+".to_owned(), 1),
                 Box::new(Expr::Literal(Object::Number(2 as f64)))
             ),
             *parser.parse().unwrap()
@@ -1333,7 +1286,7 @@ mod tests {
 
     #[test]
     fn it_can_parse_a_grouping_expression() {
-        let mut scanner = Scanner::new("(1)");
+        let mut scanner = Scanner::new("(1)".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         assert_eq!(
             Expr::Grouping(Box::new(Expr::Literal(Object::Number(1 as f64)))),
@@ -1343,20 +1296,20 @@ mod tests {
 
     #[test]
     fn it_can_parse_a_compound_expression() {
-        let mut scanner = Scanner::new("(1 + 2) * 3");
+        let mut scanner = Scanner::new("(1 + 2) * 3".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
 
         let plus = Token::new(TokenType::Plus, "+".to_owned(), 1);
         let add_expr = Expr::Grouping(Box::new(Expr::Binary(
             Box::new(Expr::Literal(Object::Number(1 as f64))),
-            &plus,
+            plus,
             Box::new(Expr::Literal(Object::Number(2 as f64))),
         )));
 
         let star = Token::new(TokenType::Star, "*".to_owned(), 1);
         let expected = Expr::Binary(
             Box::new(add_expr),
-            &star,
+            star,
             Box::new(Expr::Literal(Object::Number(3 as f64))),
         );
 
@@ -1365,125 +1318,146 @@ mod tests {
 
     #[test]
     fn it_can_parse_an_arbitrarily_complex_expression() {
-        let mut scanner = Scanner::new("(1 + 2) * 3 > (4 - 5) / 6");
+        let mut scanner = Scanner::new("(1 + 2) * 3 > (4 - 5) / 6".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
 
         let plus = Token::new(TokenType::Plus, "+".to_owned(), 1);
         let add_expr = Expr::Grouping(Box::new(Expr::Binary(
             Box::new(Expr::Literal(Object::Number(1 as f64))),
-            &plus,
+            plus,
             Box::new(Expr::Literal(Object::Number(2 as f64))),
         )));
 
         let star = Token::new(TokenType::Star, "*".to_owned(), 1);
         let star_expr = Expr::Binary(
             Box::new(add_expr),
-            &star,
+            star,
             Box::new(Expr::Literal(Object::Number(3 as f64))),
         );
 
         let minus = Token::new(TokenType::Minus, "-".to_owned(), 1);
         let sub_expr = Expr::Grouping(Box::new(Expr::Binary(
             Box::new(Expr::Literal(Object::Number(4 as f64))),
-            &minus,
+            minus,
             Box::new(Expr::Literal(Object::Number(5 as f64))),
         )));
 
         let slash = Token::new(TokenType::Slash, "/".to_owned(), 1);
         let slash_expr = Expr::Binary(
             Box::new(sub_expr),
-            &slash,
+            slash,
             Box::new(Expr::Literal(Object::Number(6 as f64))),
         );
 
         let greater = Token::new(TokenType::Greater, ">".to_owned(), 1);
-        let expected = Expr::Binary(Box::new(star_expr), &greater, Box::new(slash_expr));
+        let expected = Expr::Binary(Box::new(star_expr), greater, Box::new(slash_expr));
 
         assert_eq!(expected, *parser.parse().unwrap());
     }
 
     #[test]
     fn it_detects_unclosed_parenthesis() {
-        let mut scanner = Scanner::new("(1");
+        let mut scanner = Scanner::new("(1".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         assert_eq!(Err(RloxError::UnclosedParenthesis(1)), parser.parse());
     }
 
     #[test]
     fn it_is_a_wip() {
-        let mut scanner = Scanner::new("var foo = \"bar\";");
+        let mut scanner = Scanner::new("var foo = \"bar\";".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         assert_eq!(Err(RloxError::UnimplementedToken), parser.parse());
     }
 
     #[test]
     fn it_can_evaluate_a_unary_expression() {
-        let mut scanner = Scanner::new("-1");
+        let mut scanner = Scanner::new("-1".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         let expr = parser.parse().unwrap();
-        assert_eq!(Ok(Object::Number(f64::from(-1))), expr.evaluate());
+        let mut interpreter = Interpreter::new();
+        assert_eq!(
+            Ok(Object::Number(f64::from(-1))),
+            interpreter.evaluate(*expr)
+        );
     }
 
     #[test]
     fn it_can_evaluate_a_literal_expression() {
-        let mut scanner = Scanner::new("true");
+        let mut scanner = Scanner::new("true".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         let expr = parser.parse().unwrap();
-        assert_eq!(Ok(Object::Bool(true)), expr.evaluate());
+        let mut interpreter = Interpreter::new();
+        assert_eq!(Ok(Object::Bool(true)), interpreter.evaluate(*expr));
     }
 
     #[test]
     fn it_can_evaluate_a_literal_expression_nil() {
-        let mut scanner = Scanner::new("nil");
+        let mut scanner = Scanner::new("nil".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
+        let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
-        assert_eq!(Ok(Object::Nil), expr.evaluate());
+        assert_eq!(Ok(Object::Nil), interpreter.evaluate(*expr));
     }
 
     #[test]
     fn it_can_evaluate_a_binary_expression_mult() {
-        let mut scanner = Scanner::new("6 * 7");
+        let mut scanner = Scanner::new("6 * 7".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
+        let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
-        assert_eq!(Ok(Object::Number(f64::from(42))), expr.evaluate());
+        assert_eq!(
+            Ok(Object::Number(f64::from(42))),
+            interpreter.evaluate(*expr)
+        );
     }
 
     #[test]
     fn it_can_evaluate_a_binary_expression_div() {
-        let mut scanner = Scanner::new("8 / 4");
+        let mut scanner = Scanner::new("8 / 4".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
+        let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
-        assert_eq!(Ok(Object::Number(f64::from(8 / 4))), expr.evaluate());
+        assert_eq!(
+            Ok(Object::Number(f64::from(8 / 4))),
+            interpreter.evaluate(*expr)
+        );
     }
 
     #[test]
     fn it_can_evaluate_a_binary_expression_complex_notequal() {
-        let mut scanner = Scanner::new("2 * 3 - 4 != 5 * 6 - 7");
+        let mut scanner = Scanner::new("2 * 3 - 4 != 5 * 6 - 7".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
+        let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
-        assert_eq!(Ok(Object::Bool(true)), expr.evaluate());
+        assert_eq!(Ok(Object::Bool(true)), interpreter.evaluate(*expr));
     }
 
     #[test]
     fn it_can_evaluate_a_binary_expression_complex_equal() {
-        let mut scanner = Scanner::new("(4 + 4) == (2 * 2 * 2)");
+        let mut scanner = Scanner::new("(4 + 4) == (2 * 2 * 2)".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
+        let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
-        assert_eq!(Ok(Object::Bool(true)), expr.evaluate());
+        assert_eq!(Ok(Object::Bool(true)), interpreter.evaluate(*expr));
     }
 
     #[test]
     fn it_can_evaluate_string_concatenation() {
-        let mut scanner = Scanner::new("\"foo\" + \"bar\"");
+        let mut scanner = Scanner::new("\"foo\" + \"bar\"".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
+        let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
-        assert_eq!(Ok(Object::String(String::from("foobar"))), expr.evaluate());
+        assert_eq!(
+            Ok(Object::String(String::from("foobar"))),
+            interpreter.evaluate(*expr)
+        );
     }
 
     #[test]
     fn it_identifies_mismatched_operands_plus() {
-        let mut scanner = Scanner::new("1 + \"foo\"");
+        let mut scanner = Scanner::new("1 + \"foo\"".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
+        let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(
             Err(RloxError::MismatchedOperands(
@@ -1491,14 +1465,15 @@ mod tests {
                 Object::Number(f64::from(1)),
                 Object::String("foo".to_owned())
             )),
-            expr.evaluate()
+            interpreter.evaluate(*expr)
         );
     }
 
     #[test]
     fn it_identifies_mismatched_operands_minus() {
-        let mut scanner = Scanner::new("1 - \"bar\"");
+        let mut scanner = Scanner::new("1 - \"bar\"".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
+        let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(
             Err(RloxError::MismatchedOperands(
@@ -1506,14 +1481,15 @@ mod tests {
                 Object::Number(f64::from(1)),
                 Object::String("bar".to_owned())
             )),
-            expr.evaluate()
+            interpreter.evaluate(*expr)
         );
     }
 
     #[test]
     fn it_identifies_mismatched_operands_star() {
-        let mut scanner = Scanner::new("true * 1");
+        let mut scanner = Scanner::new("true * 1".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
+        let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(
             Err(RloxError::MismatchedOperands(
@@ -1521,14 +1497,15 @@ mod tests {
                 Object::Bool(true),
                 Object::Number(f64::from(1)),
             )),
-            expr.evaluate()
+            interpreter.evaluate(*expr)
         );
     }
 
     #[test]
     fn it_identifies_mismatched_operands_slash() {
-        let mut scanner = Scanner::new("1 / nil");
+        let mut scanner = Scanner::new("1 / nil".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
+        let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(
             Err(RloxError::MismatchedOperands(
@@ -1536,101 +1513,128 @@ mod tests {
                 Object::Number(f64::from(1)),
                 Object::Nil
             )),
-            expr.evaluate()
+            interpreter.evaluate(*expr)
         );
     }
 
     #[test]
     fn it_recognizes_valid_statements_print_arithmetic() {
-        let mut scanner = Scanner::new("print 1 + 1;");
+        let mut scanner = Scanner::new("print 1 + 1;".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         let mut statements = parser.parse_stmts().unwrap();
-
+        let mut interpreter = Interpreter::new();
         assert_eq!(statements.len(), 1);
-        // TODO yikes
-        assert_eq!(Ok(()), statements.drain(..).next().unwrap().execute());
+        // todo yikes
+        assert_eq!(
+            Ok(()),
+            interpreter.execute(statements.drain(..).next().unwrap())
+        );
     }
 
     #[test]
     fn it_recognizes_valid_statements_print_boolean() {
-        let mut scanner = Scanner::new("print true;");
+        let mut scanner = Scanner::new("print true;".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         let mut statements = parser.parse_stmts().unwrap();
-
+        let mut interpreter = Interpreter::new();
         assert_eq!(statements.len(), 1);
-        // TODO yikes
-        assert_eq!(Ok(()), statements.drain(..).next().unwrap().execute());
+        // todo yikes
+        assert_eq!(
+            Ok(()),
+            interpreter.execute(statements.drain(..).next().unwrap())
+        );
     }
 
     #[test]
     fn it_recognizes_valid_statements_print_string() {
-        let mut scanner = Scanner::new("print \"foo\";");
+        let mut scanner = Scanner::new("print \"foo\";".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         let mut statements = parser.parse_stmts().unwrap();
-
+        let mut interpreter = Interpreter::new();
         assert_eq!(statements.len(), 1);
-        // TODO yikes
-        assert_eq!(Ok(()), statements.drain(..).next().unwrap().execute());
+        // todo yikes
+        assert_eq!(
+            Ok(()),
+            interpreter.execute(statements.drain(..).next().unwrap())
+        );
     }
 
     #[test]
     fn it_recognizes_valid_statements_print_nil() {
-        let mut scanner = Scanner::new("print nil;");
+        let mut scanner = Scanner::new("print nil;".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         let mut statements = parser.parse_stmts().unwrap();
-
+        let mut interpreter = Interpreter::new();
         assert_eq!(statements.len(), 1);
-        // TODO yikes
-        assert_eq!(Ok(()), statements.drain(..).next().unwrap().execute());
+        // todo yikes
+        assert_eq!(
+            Ok(()),
+            interpreter.execute(statements.drain(..).next().unwrap())
+        );
     }
 
     #[test]
     fn it_recognizes_valid_statements_expression_arithmetic() {
-        let mut scanner = Scanner::new("1 + 1;");
+        let mut scanner = Scanner::new("1 + 1;".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         let mut statements = parser.parse_stmts().unwrap();
-
+        let mut interpreter = Interpreter::new();
         assert_eq!(statements.len(), 1);
-        // TODO yikes
-        assert_eq!(Ok(()), statements.drain(..).next().unwrap().execute());
+        // todo yikes
+        assert_eq!(
+            Ok(()),
+            interpreter.execute(statements.drain(..).next().unwrap())
+        );
     }
 
     #[test]
     fn it_recognizes_valid_statements_expression_boolean() {
-        let mut scanner = Scanner::new("true;");
+        let mut scanner = Scanner::new("true;".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         let mut statements = parser.parse_stmts().unwrap();
+        let mut interpreter = Interpreter::new();
 
         assert_eq!(statements.len(), 1);
-        // TODO yikes
-        assert_eq!(Ok(()), statements.drain(..).next().unwrap().execute());
+        // todo yikes
+        assert_eq!(
+            Ok(()),
+            interpreter.execute(statements.drain(..).next().unwrap())
+        );
     }
 
     #[test]
     fn it_recognizes_valid_statements_expression_string() {
-        let mut scanner = Scanner::new("\"foo\";");
+        let mut scanner = Scanner::new("\"foo\";".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         let mut statements = parser.parse_stmts().unwrap();
+        let mut interpreter = Interpreter::new();
 
         assert_eq!(statements.len(), 1);
         // TODO yikes
-        assert_eq!(Ok(()), statements.drain(..).next().unwrap().execute());
+        assert_eq!(
+            Ok(()),
+            interpreter.execute(statements.drain(..).next().unwrap())
+        );
     }
 
     #[test]
     fn it_recognizes_valid_statements_expression_nil() {
-        let mut scanner = Scanner::new("nil;");
+        let mut scanner = Scanner::new("nil;".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         let mut statements = parser.parse_stmts().unwrap();
+        let mut interpreter = Interpreter::new();
 
         assert_eq!(statements.len(), 1);
         // TODO yikes
-        assert_eq!(Ok(()), statements.drain(..).next().unwrap().execute());
+        assert_eq!(
+            Ok(()),
+            interpreter.execute(statements.drain(..).next().unwrap())
+        );
     }
 
     #[test]
     fn it_recognizes_invalid_statements_missing_semicolon() {
-        let mut scanner = Scanner::new("print nil");
+        let mut scanner = Scanner::new("print nil".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         assert_eq!(Err(RloxError::MissingSemicolon(1)), parser.parse_stmts());
     }
