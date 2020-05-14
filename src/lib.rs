@@ -19,6 +19,7 @@ use std::error;
 use std::fmt;
 use std::iter::Peekable;
 use std::mem::discriminant;
+use std::rc::Rc;
 use std::result;
 use std::str::Chars;
 
@@ -215,7 +216,7 @@ impl TokenType {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Token {
     token_type: TokenType,
-    lexeme: String,
+    lexeme: Rc<str>,
     line: usize,
 }
 
@@ -224,7 +225,7 @@ impl Token {
     pub fn new(token_type: TokenType, lexeme: String, line: usize) -> Self {
         Token {
             token_type,
-            lexeme,
+            lexeme: Rc::from(lexeme),
             line,
         }
     }
@@ -537,7 +538,7 @@ impl Interpreter {
                 // We should be fine as long as the `token` reference lives long
                 // enough.
                 let value = self.evaluate(expr)?;
-                self.environment.define(token.lexeme, value);
+                self.environment.define(&token.lexeme, value);
             }
             _ => {}
         }
@@ -628,7 +629,7 @@ pub enum Stmt {
 }
 
 struct Environment {
-    values: HashMap<String, Object>,
+    values: HashMap<Rc<str>, Object>,
 }
 
 impl Environment {
@@ -638,13 +639,13 @@ impl Environment {
         }
     }
 
-    fn define(&mut self, name: String, value: Object) {
-        self.values.insert(name, value);
+    fn define(&mut self, name: &Rc<str>, value: Object) {
+        self.values.insert(Rc::clone(name), value);
         assert!(self.values.len() > 0);
     }
 
     fn get(&self, name: &Token) -> Result<Object> {
-        match self.values.get(name.lexeme.as_str()) {
+        match self.values.get(&name.lexeme) {
             Some(s) => Ok(s.clone()),
             None => {
                 assert!(!self.values.is_empty());
