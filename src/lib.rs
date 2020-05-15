@@ -653,13 +653,7 @@ impl Environment {
     fn get(&self, name: &Token) -> Result<Object> {
         match self.values.get(&name.lexeme) {
             Some(s) => Ok(s.clone()),
-            None => {
-                assert!(!self.values.is_empty());
-                for (k, v) in &self.values {
-                    eprintln!("{}, {}", k, v);
-                }
-                Err(RloxError::UndefinedVariable)
-            }
+            None => Err(RloxError::UndefinedVariable),
         }
     }
 
