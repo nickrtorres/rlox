@@ -14,6 +14,7 @@
 #![feature(str_strip)]
 #![feature(bool_to_option)]
 use std::cell::Cell;
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::error;
 use std::fmt;
@@ -60,6 +61,8 @@ pub enum RloxError {
     MissingSemicolon(usize),
     /// A non existent variable was queried
     UndefinedVariable,
+    /// An invalid assignment was attempted
+    InvalidAssignment,
 }
 
 impl fmt::Display for RloxError {
@@ -211,8 +214,6 @@ impl TokenType {
     }
 }
 
-/// Deriving clone to avoid lifetime infection. This type is usually pretty cheap.
-/// TODO: revisit this
 #[derive(Clone, Debug, PartialEq)]
 pub struct Token {
     token_type: TokenType,
@@ -462,6 +463,7 @@ impl Scanner {
 /// - Uses the visitor pattern to dispatch the correct method for each type.
 #[derive(Debug, PartialEq)]
 pub enum Expr {
+    Assign(Token, Box<Expr>),
     Binary(Box<Expr>, Token, Box<Expr>),
     Grouping(Box<Expr>),
     Literal(Object),
@@ -546,8 +548,12 @@ impl Interpreter {
         Ok(())
     }
 
-    fn evaluate(&self, expr: Expr) -> Result<Object> {
+    fn evaluate(&mut self, expr: Expr) -> Result<Object> {
         match expr {
+            Expr::Assign(token, expr) => {
+                let value = self.evaluate(*expr)?;
+                self.environment.assign(&token, value)
+            }
             Expr::Binary(left_expr, token, right_expr) => {
                 let left = self.evaluate(*left_expr)?;
                 let right = self.evaluate(*right_expr)?;
@@ -653,6 +659,16 @@ impl Environment {
                     eprintln!("{}, {}", k, v);
                 }
                 Err(RloxError::UndefinedVariable)
+            }
+        }
+    }
+
+    fn assign(&mut self, name: &Token, value: Object) -> Result<Object> {
+        match self.values.entry(Rc::clone(&name.lexeme)) {
+            Entry::Vacant(_) => Err(RloxError::UndefinedVariable),
+            Entry::Occupied(mut e) => {
+                e.insert(value);
+                Ok(e.get().clone())
             }
         }
     }
@@ -788,7 +804,23 @@ impl Parser {
     }
 
     fn expression(&self) -> Result<Box<Expr>> {
-        self.equality()
+        self.assignment()
+    }
+
+    fn assignment(&self) -> Result<Box<Expr>> {
+        let expr = self.equality()?;
+
+        if self.match_tokens(vec![TokenType::Equal]) {
+            let value = self.assignment()?;
+
+            if let Expr::Variable(token) = *expr {
+                return Ok(Box::new(Expr::Assign(token, value)));
+            } else {
+                return Err(RloxError::InvalidAssignment);
+            }
+        }
+
+        Ok(expr)
     }
 
     fn equality(&self) -> Result<Box<Expr>> {
