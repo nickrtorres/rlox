@@ -239,31 +239,10 @@ impl fmt::Display for Token {
     }
 }
 
-/// Adapter for OwnedChars -> Peekable
-struct PeekableChars {
-    data: Peekable<OwnedChars>,
-}
-
-impl PeekableChars {
-    fn from_string(data: String) -> Self {
-        PeekableChars {
-            data: OwnedChars::from_string(data).into_iter().peekable(),
-        }
-    }
-
-    fn peek(&mut self) -> Option<&char> {
-        self.data.peek()
-    }
-
-    fn next(&mut self) -> Option<char> {
-        self.data.next()
-    }
-}
-
 pub struct Scanner {
     // Scratch pad for Tokens
     scratch: String,
-    chars: PeekableChars,
+    chars: Peekable<OwnedChars>,
     // Consider making tokens, start and current Cell's to avoid
     // having to hold a mut Scanner
     tokens: Vec<Token>,
@@ -282,7 +261,7 @@ impl Scanner {
         Scanner {
             // cautiously optimistic allocation
             scratch: String::with_capacity(1024),
-            chars: PeekableChars::from_string(source),
+            chars: OwnedChars::from_string(source).peekable(),
             tokens: Vec::new(),
             line: 1,
         }
