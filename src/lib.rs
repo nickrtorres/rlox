@@ -506,13 +506,13 @@ impl fmt::Display for Object {
 }
 
 pub struct Interpreter {
-    environment: Environment,
+    environment: Rc<Environment>,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
         Interpreter {
-            environment: Environment::new(),
+            environment: Rc::new(Environment::new()),
         }
     }
 
@@ -526,6 +526,9 @@ impl Interpreter {
 
     fn execute(&mut self, statement: Stmt) -> Result<()> {
         match statement {
+            Stmt::Block(statements) => {
+                self.execute_block(statements, Environment::from(&self.environment))?;
+            }
             Stmt::Expression(expr) => {
                 self.evaluate(expr)?;
             }
@@ -534,16 +537,29 @@ impl Interpreter {
                 println!("{}", value);
             }
             Stmt::Var(token, Some(expr)) => {
-                // Lifetime justification:
-                // `statement` is dropped at the end of this block. However, we
-                // only care about the token that `statement` has a reference to.
-                // We should be fine as long as the `token` reference lives long
-                // enough.
                 let value = self.evaluate(expr)?;
-                self.environment.define(&token.lexeme, value);
+                Rc::get_mut(&mut self.environment)
+                    .map(|e| e.define(&token.lexeme, value))
+                    .ok_or(RloxError::Unreachable)?;
             }
             _ => {}
         }
+
+        Ok(())
+    }
+
+    fn execute_block(&mut self, statements: Vec<Stmt>, environment: Environment) -> Result<()> {
+        // Things get a bit weird here. jlox leans on Java's GC to do this.  We
+        // need to be explicit. Reference count our original environment so it
+        // doesn't get dropped when we *move* it.
+        let previous = Rc::clone(&self.environment);
+
+        self.environment = Rc::new(environment);
+        for statement in statements {
+            self.execute(statement)?;
+        }
+
+        self.environment = previous;
 
         Ok(())
     }
@@ -552,7 +568,9 @@ impl Interpreter {
         match expr {
             Expr::Assign(token, expr) => {
                 let value = self.evaluate(*expr)?;
-                self.environment.assign(&token, value)
+                Rc::get_mut(&mut self.environment)
+                    .ok_or(RloxError::Unreachable)
+                    .and_then(|e| e.assign(&token, value))
             }
             Expr::Binary(left_expr, token, right_expr) => {
                 let left = self.evaluate(*left_expr)?;
@@ -628,6 +646,7 @@ impl Interpreter {
 
 #[derive(Debug, PartialEq)]
 pub enum Stmt {
+    Block(Vec<Stmt>),
     Expression(Expr),
     Print(Expr),
     // Variable declaration w/o assignment defaults to Option::None
@@ -636,12 +655,21 @@ pub enum Stmt {
 
 struct Environment {
     values: HashMap<Rc<str>, Object>,
+    enclosing: Option<Rc<Environment>>,
 }
 
 impl Environment {
     fn new() -> Self {
         Environment {
             values: HashMap::new(),
+            enclosing: None,
+        }
+    }
+
+    fn from(enclosing: &Rc<Environment>) -> Self {
+        Environment {
+            values: HashMap::new(),
+            enclosing: Some(Rc::clone(enclosing)),
         }
     }
 
@@ -653,13 +681,27 @@ impl Environment {
     fn get(&self, name: &Token) -> Result<Object> {
         match self.values.get(&name.lexeme) {
             Some(s) => Ok(s.clone()),
-            None => Err(RloxError::UndefinedVariable),
+            None => {
+                if let Some(e) = &self.enclosing {
+                    return e.get(name);
+                }
+
+                Err(RloxError::UndefinedVariable)
+            }
         }
     }
 
     fn assign(&mut self, name: &Token, value: Object) -> Result<Object> {
         match self.values.entry(Rc::clone(&name.lexeme)) {
-            Entry::Vacant(_) => Err(RloxError::UndefinedVariable),
+            Entry::Vacant(_) => {
+                if let Some(e) = &mut self.enclosing {
+                    return Rc::get_mut(e)
+                        .ok_or(RloxError::Unreachable)
+                        .and_then(|nested| nested.assign(name, value));
+                }
+
+                Err(RloxError::UndefinedVariable)
+            }
             Entry::Occupied(mut e) => {
                 e.insert(value);
                 Ok(e.get().clone())
@@ -748,9 +790,22 @@ impl Parser {
     fn statement(&self) -> Result<Stmt> {
         if self.match_tokens(vec![TokenType::Print]) {
             self.print_statement()
+        } else if self.match_tokens(vec![TokenType::LeftBrace]) {
+            Ok(Stmt::Block(self.block()?))
         } else {
             self.expression_statement()
         }
+    }
+
+    fn block(&self) -> Result<Vec<Stmt>> {
+        let mut statements = Vec::new();
+
+        while !self.check(&TokenType::RightBrace) && !self.is_at_end() {
+            statements.push(self.declaration()?);
+        }
+
+        self.consume(TokenType::RightBrace)?;
+        Ok(statements)
     }
 
     fn synchronize(&self) {
