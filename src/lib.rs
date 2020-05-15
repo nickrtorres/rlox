@@ -550,7 +550,7 @@ impl Interpreter {
 
     fn execute_block(&mut self, statements: Vec<Stmt>, environment: Environment) -> Result<()> {
         // Things get a bit weird here. jlox leans on Java's GC to do this.  We
-        // need explicitly reference count our original `environment` so it
+        // need to explicitly reference count our original `environment` so it
         // doesn't get dropped when we *move* it.
         let previous = Rc::clone(&self.environment);
 
