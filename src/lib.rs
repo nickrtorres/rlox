@@ -37,11 +37,11 @@ pub enum RloxError {
     /// A quasi-unreachable block was reached! This is a nicer
     /// `unreachable!`---by nicer I mean it doesn't `panic`
     Unreachable,
-    /// An unimplemented token was encountered. Since this interpretter is a
+    /// An unimplemented area as encountered. Since this interpretter is a
     /// WIP, this is a very likely error. Unfortunately, we can no longer
     /// reason about the program after receiving this error, so we must
     /// propogate it up to the caller.
-    UnimplementedToken,
+    Unimplemented,
     /// The operand types do not match for the given binary expression. The
     /// tuple elements are in [Polish notation][wiki-NPN] i.e. operator, left, right
     ///
@@ -894,7 +894,7 @@ impl Parser {
             return Ok(Box::new(Expr::Grouping(expr)));
         }
 
-        Err(RloxError::UnimplementedToken)
+        Err(RloxError::Unimplemented)
     }
 
     fn consume(&self, token_type: TokenType) -> Result<Token> {
@@ -1367,7 +1367,7 @@ mod tests {
     fn it_is_a_wip() {
         let scanner = Scanner::new("var foo = \"bar\";".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
-        assert_eq!(Err(RloxError::UnimplementedToken), parser.parse());
+        assert_eq!(Err(RloxError::Unimplemented), parser.parse());
     }
 
     #[test]
