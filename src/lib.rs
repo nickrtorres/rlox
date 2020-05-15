@@ -22,7 +22,8 @@ use std::iter::Peekable;
 use std::mem::discriminant;
 use std::rc::Rc;
 use std::result;
-use std::str::Chars;
+
+use owned_chars::OwnedChars;
 
 pub type Result<T> = result::Result<T, RloxError>;
 
@@ -238,49 +239,31 @@ impl fmt::Display for Token {
     }
 }
 
-use std::mem;
-
-/// Taken almost *as-is* from [StackOverflow][answer]. Modification:
-/// chars is Peekable.
-/// TODO: is this really needed? It'd be nice if there was a way to do this
-/// without unsafe.
-///
-/// BEGIN *taken_from_stack_overflow*
-/// "I believe this struct to be safe because the String is
-/// heap-allocated (stable address) and will never be modified
-/// (stable address). `chars` will not outlive the struct, so
-/// lying about the lifetime should be fine."
-///
-///
-/// [answer]: https://stackoverflow.com/a/43958470
-struct OwningChars {
-    _s: String,
-    chars: Peekable<Chars<'static>>,
+/// Adapter for OwnedChars -> Peekable
+struct PeekableChars {
+    data: Peekable<OwnedChars>,
 }
 
-impl OwningChars {
-    fn new(s: String) -> Self {
-        let chars = unsafe { mem::transmute(s.chars().peekable()) };
-        OwningChars { _s: s, chars }
+impl PeekableChars {
+    fn from_string(data: String) -> Self {
+        PeekableChars {
+            data: OwnedChars::from_string(data).into_iter().peekable(),
+        }
     }
 
     fn peek(&mut self) -> Option<&char> {
-        self.chars.peek()
+        self.data.peek()
     }
-}
 
-impl Iterator for OwningChars {
-    type Item = char;
-    fn next(&mut self) -> Option<Self::Item> {
-        self.chars.next()
+    fn next(&mut self) -> Option<char> {
+        self.data.next()
     }
 }
-// END *taken_from_stack_overflow*
 
 pub struct Scanner {
     // Scratch pad for Tokens
     scratch: String,
-    chars: OwningChars,
+    chars: PeekableChars,
     // Consider making tokens, start and current Cell's to avoid
     // having to hold a mut Scanner
     tokens: Vec<Token>,
@@ -299,7 +282,7 @@ impl Scanner {
         Scanner {
             // cautiously optimistic allocation
             scratch: String::with_capacity(1024),
-            chars: OwningChars::new(source),
+            chars: PeekableChars::from_string(source),
             tokens: Vec::new(),
             line: 1,
         }
@@ -1456,7 +1439,7 @@ mod tests {
         let scanner = Scanner::new("-1".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         let expr = parser.parse().unwrap();
-        let interpreter = Interpreter::new();
+        let mut interpreter = Interpreter::new();
         assert_eq!(
             Ok(Object::Number(f64::from(-1))),
             interpreter.evaluate(*expr)
@@ -1468,7 +1451,7 @@ mod tests {
         let scanner = Scanner::new("true".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         let expr = parser.parse().unwrap();
-        let interpreter = Interpreter::new();
+        let mut interpreter = Interpreter::new();
         assert_eq!(Ok(Object::Bool(true)), interpreter.evaluate(*expr));
     }
 
@@ -1476,7 +1459,7 @@ mod tests {
     fn it_can_evaluate_a_literal_expression_nil() {
         let scanner = Scanner::new("nil".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
-        let interpreter = Interpreter::new();
+        let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(Ok(Object::Nil), interpreter.evaluate(*expr));
     }
@@ -1485,7 +1468,7 @@ mod tests {
     fn it_can_evaluate_a_binary_expression_mult() {
         let scanner = Scanner::new("6 * 7".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
-        let interpreter = Interpreter::new();
+        let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(
             Ok(Object::Number(f64::from(42))),
@@ -1497,7 +1480,7 @@ mod tests {
     fn it_can_evaluate_a_binary_expression_div() {
         let scanner = Scanner::new("8 / 4".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
-        let interpreter = Interpreter::new();
+        let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(
             Ok(Object::Number(f64::from(8 / 4))),
@@ -1509,7 +1492,7 @@ mod tests {
     fn it_can_evaluate_a_binary_expression_complex_notequal() {
         let scanner = Scanner::new("2 * 3 - 4 != 5 * 6 - 7".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
-        let interpreter = Interpreter::new();
+        let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(Ok(Object::Bool(true)), interpreter.evaluate(*expr));
     }
@@ -1518,7 +1501,7 @@ mod tests {
     fn it_can_evaluate_a_binary_expression_complex_equal() {
         let scanner = Scanner::new("(4 + 4) == (2 * 2 * 2)".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
-        let interpreter = Interpreter::new();
+        let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(Ok(Object::Bool(true)), interpreter.evaluate(*expr));
     }
@@ -1527,7 +1510,7 @@ mod tests {
     fn it_can_evaluate_string_concatenation() {
         let scanner = Scanner::new("\"foo\" + \"bar\"".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
-        let interpreter = Interpreter::new();
+        let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(
             Ok(Object::String(String::from("foobar"))),
@@ -1539,7 +1522,7 @@ mod tests {
     fn it_identifies_mismatched_operands_plus() {
         let scanner = Scanner::new("1 + \"foo\"".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
-        let interpreter = Interpreter::new();
+        let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(
             Err(RloxError::MismatchedOperands(
@@ -1555,7 +1538,7 @@ mod tests {
     fn it_identifies_mismatched_operands_minus() {
         let scanner = Scanner::new("1 - \"bar\"".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
-        let interpreter = Interpreter::new();
+        let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(
             Err(RloxError::MismatchedOperands(
@@ -1571,7 +1554,7 @@ mod tests {
     fn it_identifies_mismatched_operands_star() {
         let scanner = Scanner::new("true * 1".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
-        let interpreter = Interpreter::new();
+        let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(
             Err(RloxError::MismatchedOperands(
@@ -1587,7 +1570,7 @@ mod tests {
     fn it_identifies_mismatched_operands_slash() {
         let scanner = Scanner::new("1 / nil".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
-        let interpreter = Interpreter::new();
+        let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(
             Err(RloxError::MismatchedOperands(
