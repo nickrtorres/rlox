@@ -491,6 +491,13 @@ impl Interpreter {
             Stmt::Block(statements) => {
                 self.execute_block(statements, Environment::from(&self.environment))?;
             }
+            Stmt::If(expr, then_branch, else_branch) => {
+                if let Object::Bool(true) = self.evaluate(expr)? {
+                    self.execute(*then_branch)?;
+                } else if let Some(e) = else_branch {
+                    self.execute(*e)?;
+                }
+            }
             Stmt::Expression(expr) => {
                 self.evaluate(expr)?;
             }
@@ -609,6 +616,7 @@ impl Interpreter {
 #[derive(Debug, PartialEq)]
 pub enum Stmt {
     Block(Vec<Stmt>),
+    If(Expr, Box<Stmt>, Option<Box<Stmt>>),
     Expression(Expr),
     Print(Expr),
     // Variable declaration w/o assignment defaults to Option::None
@@ -750,13 +758,30 @@ impl Parser {
     }
 
     fn statement(&self) -> Result<Stmt> {
-        if self.match_tokens(vec![TokenType::Print]) {
+        if self.match_tokens(vec![TokenType::If]) {
+            return self.if_statement();
+        } else if self.match_tokens(vec![TokenType::Print]) {
             self.print_statement()
         } else if self.match_tokens(vec![TokenType::LeftBrace]) {
             Ok(Stmt::Block(self.block()?))
         } else {
             self.expression_statement()
         }
+    }
+
+    fn if_statement(&self) -> Result<Stmt> {
+        self.consume(TokenType::LeftParen)?;
+        let condition = self.expression()?;
+        self.consume(TokenType::RightParen)?;
+
+        let then_branch = self.statement()?;
+        let else_branch = if self.match_tokens(vec![TokenType::Else]) {
+            Some(Box::new(self.statement()?))
+        } else {
+            None
+        };
+
+        Ok(Stmt::If(*condition, Box::new(then_branch), else_branch))
     }
 
     fn block(&self) -> Result<Vec<Stmt>> {
