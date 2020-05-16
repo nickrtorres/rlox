@@ -429,6 +429,7 @@ pub enum Expr {
     Binary(Box<Expr>, Token, Box<Expr>),
     Grouping(Box<Expr>),
     Literal(Object),
+    Logical(Box<Expr>, Token, Box<Expr>),
     Unary(Token, Box<Expr>),
     Variable(Token),
 }
@@ -607,6 +608,21 @@ impl Interpreter {
                 Err(RloxError::Unreachable)
             }
             Expr::Literal(obj) => Ok(obj.clone()),
+            Expr::Logical(left, token, right) => {
+                let left = self.evaluate(*left)?;
+
+                if token.token_type == TokenType::Or {
+                    if let Object::Bool(true) = left {
+                        return Ok(left);
+                    }
+                } else {
+                    if let Object::Bool(false) = left {
+                        return Ok(left);
+                    }
+                }
+
+                return self.evaluate(*right);
+            }
             Expr::Grouping(group) => self.evaluate(*group),
             Expr::Variable(token) => Ok(self.environment.get(&token)?),
         }
@@ -844,7 +860,7 @@ impl Parser {
     }
 
     fn assignment(&self) -> Result<Box<Expr>> {
-        let expr = self.equality()?;
+        let expr = self.or()?;
 
         if self.match_tokens(vec![TokenType::Equal]) {
             let value = self.assignment()?;
@@ -854,6 +870,30 @@ impl Parser {
             } else {
                 return Err(RloxError::InvalidAssignment);
             }
+        }
+
+        Ok(expr)
+    }
+
+    fn or(&self) -> Result<Box<Expr>> {
+        let mut expr = self.and()?;
+
+        while self.match_tokens(vec![TokenType::Or]) {
+            let operator = self.previous()?;
+            let right = self.and()?;
+            expr = Box::new(Expr::Logical(expr, operator, right));
+        }
+
+        Ok(expr)
+    }
+
+    fn and(&self) -> Result<Box<Expr>> {
+        let mut expr = self.equality()?;
+
+        while self.match_tokens(vec![TokenType::And]) {
+            let operator = self.previous()?;
+            let right = self.and()?;
+            expr = Box::new(Expr::Logical(expr, operator, right));
         }
 
         Ok(expr)
