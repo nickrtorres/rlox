@@ -490,6 +490,7 @@ impl Interpreter {
     fn execute(&mut self, statement: Stmt) -> Result<()> {
         match statement {
             Stmt::Block(statements) => {
+                assert_eq!(1, Rc::strong_count(&self.environment));
                 self.execute_block(statements, Environment::from(&self.environment))?;
             }
             Stmt::If(expr, then_branch, else_branch) => {
@@ -519,25 +520,23 @@ impl Interpreter {
     }
 
     fn execute_block(&mut self, statements: Vec<Stmt>, environment: Environment) -> Result<()> {
-        // Things get a bit weird here. jlox leans on Java's GC to do this.  We
-        // need to explicitly reference count our original `environment` so it
-        // doesn't get dropped when we *move* it.
-        let previous = Rc::clone(&self.environment);
-
         self.environment = Rc::new(environment);
         for statement in statements {
             self.execute(statement)?;
         }
 
-        self.environment = previous;
-
-        Ok(())
+        assert_eq!(1, Rc::strong_count(&self.environment));
+        Rc::get_mut(&mut self.environment)
+            .ok_or(RloxError::Unreachable)
+            .and_then(|e| e.flatten())
     }
 
     fn evaluate(&mut self, expr: &Expr) -> Result<Object> {
         match expr {
             Expr::Assign(token, expr) => {
                 let value = self.evaluate(expr)?;
+                // This is a problem. A mutable reference to Rc is retrieved and
+                // then attempted again.
                 Rc::get_mut(&mut self.environment)
                     .ok_or(RloxError::Unreachable)
                     .and_then(|e| e.assign(&token, value))
@@ -639,6 +638,7 @@ pub enum Stmt {
     Var(Token, Option<Expr>),
 }
 
+#[derive(Debug)]
 struct Environment {
     values: HashMap<Rc<str>, Object>,
     enclosing: Option<Rc<Environment>>,
@@ -681,6 +681,7 @@ impl Environment {
         match self.values.entry(Rc::clone(&name.lexeme)) {
             Entry::Vacant(_) => {
                 if let Some(e) = &mut self.enclosing {
+                    assert_eq!(1, Rc::strong_count(&e));
                     return Rc::get_mut(e)
                         .ok_or(RloxError::Unreachable)
                         .and_then(|nested| nested.assign(name, value));
@@ -693,6 +694,21 @@ impl Environment {
                 Ok(e.get().clone())
             }
         }
+    }
+
+    fn flatten(&mut self) -> Result<()> {
+        let enclosing = self.enclosing.take().ok_or(RloxError::Unreachable)?;
+
+        // we're about to consume enclosing! make sure there aren't any other users
+        if Rc::strong_count(&enclosing) != 1 {
+            return Err(RloxError::Unreachable);
+        }
+
+        self.values = Rc::try_unwrap(enclosing)
+            .map_err(|_| RloxError::Unreachable)?
+            .values;
+
+        Ok(())
     }
 }
 
@@ -1746,5 +1762,16 @@ mod tests {
         let scanner = Scanner::new("print nil".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
         assert_eq!(Err(RloxError::MissingSemicolon(1)), parser.parse_stmts());
+    }
+
+    #[test]
+    fn it_supports_reassignment_block() {
+        let scanner = Scanner::new("var a = 1; { a = 2; } print a;".to_owned());
+        let parser = Parser::new(scanner.scan_tokens());
+        let mut vec_stmts = parser.parse_stmts().unwrap();
+        let mut stmts = vec_stmts.drain(..);
+        let mut interpreter = Interpreter::new();
+        assert!(interpreter.execute(stmts.next().unwrap()).is_ok());
+        assert!(interpreter.execute(stmts.next().unwrap()).is_ok());
     }
 }
