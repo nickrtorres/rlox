@@ -18,7 +18,8 @@ fn run<T: BufRead>(b: &mut T, interpreter: &mut Interpreter) -> Result<()> {
     let parser = Parser::new(scanner.scan_tokens());
     let statements = parser.parse_stmts()?;
 
-    // for some reason return interpreter.interpret(statements) doesn't work ?
+    // for some reason `interpreter.interpret(statements)` (no semicolon)
+    // doesn't work?
     interpreter.interpret(statements)?;
 
     Ok(())
