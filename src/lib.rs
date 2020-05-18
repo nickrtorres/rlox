@@ -493,21 +493,21 @@ impl Interpreter {
                 self.execute_block(statements, Environment::from(&self.environment))?;
             }
             Stmt::If(expr, then_branch, else_branch) => {
-                if let Object::Bool(true) = self.evaluate(expr)? {
+                if let Object::Bool(true) = self.evaluate(&expr)? {
                     self.execute(*then_branch)?;
                 } else if let Some(e) = else_branch {
                     self.execute(*e)?;
                 }
             }
             Stmt::Expression(expr) => {
-                self.evaluate(expr)?;
+                self.evaluate(&expr)?;
             }
             Stmt::Print(expr) => {
-                let value = self.evaluate(expr)?;
+                let value = self.evaluate(&expr)?;
                 println!("{}", value);
             }
             Stmt::Var(token, Some(expr)) => {
-                let value = self.evaluate(expr)?;
+                let value = self.evaluate(&expr)?;
                 Rc::get_mut(&mut self.environment)
                     .map(|e| e.define(&token.lexeme, value))
                     .ok_or(RloxError::Unreachable)?;
@@ -534,17 +534,17 @@ impl Interpreter {
         Ok(())
     }
 
-    fn evaluate(&mut self, expr: Expr) -> Result<Object> {
+    fn evaluate(&mut self, expr: &Expr) -> Result<Object> {
         match expr {
             Expr::Assign(token, expr) => {
-                let value = self.evaluate(*expr)?;
+                let value = self.evaluate(expr)?;
                 Rc::get_mut(&mut self.environment)
                     .ok_or(RloxError::Unreachable)
                     .and_then(|e| e.assign(&token, value))
             }
             Expr::Binary(left_expr, token, right_expr) => {
-                let left = self.evaluate(*left_expr)?;
-                let right = self.evaluate(*right_expr)?;
+                let left = self.evaluate(left_expr)?;
+                let right = self.evaluate(right_expr)?;
 
                 match token.token_type {
                     TokenType::Minus => match (&left, &right) {
@@ -560,7 +560,7 @@ impl Interpreter {
                         _ => Err(RloxError::MismatchedOperands(TokenType::Star, left, right)),
                     },
                     TokenType::Plus => match (&left, &right) {
-                        (Object::Number(l), Object::Number(r)) => Ok(Object::Number(*l + *r)),
+                        (Object::Number(l), Object::Number(r)) => Ok(Object::Number(l + r)),
                         (Object::String(l), Object::String(r)) => {
                             let mut buffer = String::with_capacity(l.capacity() + r.capacity());
                             buffer.push_str(l);
@@ -591,7 +591,7 @@ impl Interpreter {
                 }
             }
             Expr::Unary(token, expr) => {
-                let right = self.evaluate(*expr)?;
+                let right = self.evaluate(expr)?;
 
                 if let TokenType::Minus = token.token_type {
                     if let Object::Number(n) = right {
@@ -609,7 +609,7 @@ impl Interpreter {
             }
             Expr::Literal(obj) => Ok(obj.clone()),
             Expr::Logical(left, token, right) => {
-                let left = self.evaluate(*left)?;
+                let left = self.evaluate(left)?;
 
                 if token.token_type == TokenType::Or {
                     if let Object::Bool(true) = left {
@@ -621,9 +621,9 @@ impl Interpreter {
                     }
                 }
 
-                return self.evaluate(*right);
+                return self.evaluate(right);
             }
-            Expr::Grouping(group) => self.evaluate(*group),
+            Expr::Grouping(group) => self.evaluate(group),
             Expr::Variable(token) => Ok(self.environment.get(&token)?),
         }
     }
@@ -1486,7 +1486,7 @@ mod tests {
         let mut interpreter = Interpreter::new();
         assert_eq!(
             Ok(Object::Number(f64::from(-1))),
-            interpreter.evaluate(*expr)
+            interpreter.evaluate(&expr)
         );
     }
 
@@ -1496,7 +1496,7 @@ mod tests {
         let parser = Parser::new(scanner.scan_tokens());
         let expr = parser.parse().unwrap();
         let mut interpreter = Interpreter::new();
-        assert_eq!(Ok(Object::Bool(true)), interpreter.evaluate(*expr));
+        assert_eq!(Ok(Object::Bool(true)), interpreter.evaluate(&expr));
     }
 
     #[test]
@@ -1505,7 +1505,7 @@ mod tests {
         let parser = Parser::new(scanner.scan_tokens());
         let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
-        assert_eq!(Ok(Object::Nil), interpreter.evaluate(*expr));
+        assert_eq!(Ok(Object::Nil), interpreter.evaluate(&expr));
     }
 
     #[test]
@@ -1516,7 +1516,7 @@ mod tests {
         let expr = parser.parse().unwrap();
         assert_eq!(
             Ok(Object::Number(f64::from(42))),
-            interpreter.evaluate(*expr)
+            interpreter.evaluate(&expr)
         );
     }
 
@@ -1528,7 +1528,7 @@ mod tests {
         let expr = parser.parse().unwrap();
         assert_eq!(
             Ok(Object::Number(f64::from(8 / 4))),
-            interpreter.evaluate(*expr)
+            interpreter.evaluate(&expr)
         );
     }
 
@@ -1538,7 +1538,7 @@ mod tests {
         let parser = Parser::new(scanner.scan_tokens());
         let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
-        assert_eq!(Ok(Object::Bool(true)), interpreter.evaluate(*expr));
+        assert_eq!(Ok(Object::Bool(true)), interpreter.evaluate(&expr));
     }
 
     #[test]
@@ -1547,7 +1547,7 @@ mod tests {
         let parser = Parser::new(scanner.scan_tokens());
         let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
-        assert_eq!(Ok(Object::Bool(true)), interpreter.evaluate(*expr));
+        assert_eq!(Ok(Object::Bool(true)), interpreter.evaluate(&expr));
     }
 
     #[test]
@@ -1558,7 +1558,7 @@ mod tests {
         let expr = parser.parse().unwrap();
         assert_eq!(
             Ok(Object::String(String::from("foobar"))),
-            interpreter.evaluate(*expr)
+            interpreter.evaluate(&expr)
         );
     }
 
@@ -1574,7 +1574,7 @@ mod tests {
                 Object::Number(f64::from(1)),
                 Object::String("foo".to_owned())
             )),
-            interpreter.evaluate(*expr)
+            interpreter.evaluate(&expr)
         );
     }
 
@@ -1590,7 +1590,7 @@ mod tests {
                 Object::Number(f64::from(1)),
                 Object::String("bar".to_owned())
             )),
-            interpreter.evaluate(*expr)
+            interpreter.evaluate(&expr)
         );
     }
 
@@ -1606,7 +1606,7 @@ mod tests {
                 Object::Bool(true),
                 Object::Number(f64::from(1)),
             )),
-            interpreter.evaluate(*expr)
+            interpreter.evaluate(&expr)
         );
     }
 
@@ -1622,7 +1622,7 @@ mod tests {
                 Object::Number(f64::from(1)),
                 Object::Nil
             )),
-            interpreter.evaluate(*expr)
+            interpreter.evaluate(&expr)
         );
     }
 
