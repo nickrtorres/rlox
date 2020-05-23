@@ -702,9 +702,7 @@ impl Environment {
             return Err(RloxError::Unreachable);
         }
 
-        self.values = Rc::try_unwrap(enclosing)
-            .map_err(|_| RloxError::Unreachable)?
-            .values;
+        *self = Rc::try_unwrap(enclosing).map_err(|_| RloxError::Unreachable)?;
 
         Ok(())
     }
@@ -1765,6 +1763,20 @@ mod tests {
     #[test]
     fn it_supports_reassignment_block() {
         let scanner = Scanner::new("var a = 1; { a = 2; } print a;".to_owned());
+        let parser = Parser::new(scanner.scan_tokens());
+        let mut vec_stmts = parser.parse_stmts().unwrap();
+        let mut stmts = vec_stmts.drain(..);
+        let mut interpreter = Interpreter::new();
+        assert!(interpreter.execute(stmts.next().unwrap()).is_ok());
+        assert!(interpreter.execute(stmts.next().unwrap()).is_ok());
+    }
+
+    #[test]
+    fn it_supports_reassignment_nested_block() {
+        let scanner = Scanner::new(
+            "var a = \"foo\"; { var b = \"bar\"; { var c = \"baz\"; print a + b + c; } print a + b; } print a;"
+                .to_owned(),
+        );
         let parser = Parser::new(scanner.scan_tokens());
         let mut vec_stmts = parser.parse_stmts().unwrap();
         let mut stmts = vec_stmts.drain(..);
