@@ -535,8 +535,6 @@ impl Interpreter {
         match expr {
             Expr::Assign(token, expr) => {
                 let value = self.evaluate(expr)?;
-                // This is a problem. A mutable reference to Rc is retrieved and
-                // then attempted again.
                 Rc::get_mut(&mut self.environment)
                     .ok_or(RloxError::Unreachable)
                     .and_then(|e| e.assign(&token, value))
