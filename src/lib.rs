@@ -481,13 +481,13 @@ impl Interpreter {
 
     pub fn interpret(&mut self, statements: Vec<Stmt>) -> Result<()> {
         for statement in statements {
-            self.execute(statement)?;
+            self.execute(&statement)?;
         }
 
         Ok(())
     }
 
-    fn execute(&mut self, statement: Stmt) -> Result<()> {
+    fn execute(&mut self, statement: &Stmt) -> Result<()> {
         match statement {
             Stmt::Block(statements) => {
                 assert_eq!(1, Rc::strong_count(&self.environment));
@@ -495,9 +495,9 @@ impl Interpreter {
             }
             Stmt::If(expr, then_branch, else_branch) => {
                 if let Object::Bool(true) = self.evaluate(&expr)? {
-                    self.execute(*then_branch)?;
+                    self.execute(then_branch)?;
                 } else if let Some(e) = else_branch {
-                    self.execute(*e)?;
+                    self.execute(e)?;
                 }
             }
             Stmt::Expression(expr) => {
@@ -513,13 +513,18 @@ impl Interpreter {
                     .map(|e| e.define(&token.lexeme, value))
                     .ok_or(RloxError::Unreachable)?;
             }
+            Stmt::While(condition, stmt) => {
+                while let Object::Bool(true) = self.evaluate(&condition)? {
+                    self.execute(&stmt)?;
+                }
+            }
             _ => {}
         }
 
         Ok(())
     }
 
-    fn execute_block(&mut self, statements: Vec<Stmt>, environment: Environment) -> Result<()> {
+    fn execute_block(&mut self, statements: &[Stmt], environment: Environment) -> Result<()> {
         self.environment = Rc::new(environment);
         for statement in statements {
             self.execute(statement)?;
@@ -632,8 +637,8 @@ pub enum Stmt {
     If(Expr, Box<Stmt>, Option<Box<Stmt>>),
     Expression(Expr),
     Print(Expr),
-    // Variable declaration w/o assignment defaults to Option::None
     Var(Token, Option<Expr>),
+    While(Expr, Box<Stmt>),
 }
 
 #[derive(Debug)]
@@ -790,11 +795,22 @@ impl Parser {
             return self.if_statement();
         } else if self.match_tokens(vec![TokenType::Print]) {
             self.print_statement()
+        } else if self.match_tokens(vec![TokenType::While]) {
+            self.while_statement()
         } else if self.match_tokens(vec![TokenType::LeftBrace]) {
             Ok(Stmt::Block(self.block()?))
         } else {
             self.expression_statement()
         }
+    }
+
+    fn while_statement(&self) -> Result<Stmt> {
+        self.consume(TokenType::LeftParen)?;
+        let condition = self.expression()?;
+        self.consume(TokenType::RightParen)?;
+        let body = self.statement()?;
+
+        Ok(Stmt::While(*condition, Box::new(body)))
     }
 
     fn if_statement(&self) -> Result<Stmt> {
@@ -1648,7 +1664,7 @@ mod tests {
         // todo yikes
         assert_eq!(
             Ok(()),
-            interpreter.execute(statements.drain(..).next().unwrap())
+            interpreter.execute(&statements.drain(..).next().unwrap())
         );
     }
 
@@ -1662,7 +1678,7 @@ mod tests {
         // todo yikes
         assert_eq!(
             Ok(()),
-            interpreter.execute(statements.drain(..).next().unwrap())
+            interpreter.execute(&statements.drain(..).next().unwrap())
         );
     }
 
@@ -1676,7 +1692,7 @@ mod tests {
         // todo yikes
         assert_eq!(
             Ok(()),
-            interpreter.execute(statements.drain(..).next().unwrap())
+            interpreter.execute(&statements.drain(..).next().unwrap())
         );
     }
 
@@ -1690,7 +1706,7 @@ mod tests {
         // todo yikes
         assert_eq!(
             Ok(()),
-            interpreter.execute(statements.drain(..).next().unwrap())
+            interpreter.execute(&statements.drain(..).next().unwrap())
         );
     }
 
@@ -1704,7 +1720,7 @@ mod tests {
         // todo yikes
         assert_eq!(
             Ok(()),
-            interpreter.execute(statements.drain(..).next().unwrap())
+            interpreter.execute(&statements.drain(..).next().unwrap())
         );
     }
 
@@ -1719,7 +1735,7 @@ mod tests {
         // todo yikes
         assert_eq!(
             Ok(()),
-            interpreter.execute(statements.drain(..).next().unwrap())
+            interpreter.execute(&statements.drain(..).next().unwrap())
         );
     }
 
@@ -1734,7 +1750,7 @@ mod tests {
         // TODO yikes
         assert_eq!(
             Ok(()),
-            interpreter.execute(statements.drain(..).next().unwrap())
+            interpreter.execute(&statements.drain(..).next().unwrap())
         );
     }
 
@@ -1749,7 +1765,7 @@ mod tests {
         // TODO yikes
         assert_eq!(
             Ok(()),
-            interpreter.execute(statements.drain(..).next().unwrap())
+            interpreter.execute(&statements.drain(..).next().unwrap())
         );
     }
 
@@ -1767,8 +1783,8 @@ mod tests {
         let mut vec_stmts = parser.parse_stmts().unwrap();
         let mut stmts = vec_stmts.drain(..);
         let mut interpreter = Interpreter::new();
-        assert!(interpreter.execute(stmts.next().unwrap()).is_ok());
-        assert!(interpreter.execute(stmts.next().unwrap()).is_ok());
+        assert!(interpreter.execute(&stmts.next().unwrap()).is_ok());
+        assert!(interpreter.execute(&stmts.next().unwrap()).is_ok());
     }
 
     #[test]
@@ -1781,7 +1797,7 @@ mod tests {
         let mut vec_stmts = parser.parse_stmts().unwrap();
         let mut stmts = vec_stmts.drain(..);
         let mut interpreter = Interpreter::new();
-        assert!(interpreter.execute(stmts.next().unwrap()).is_ok());
-        assert!(interpreter.execute(stmts.next().unwrap()).is_ok());
+        assert!(interpreter.execute(&stmts.next().unwrap()).is_ok());
+        assert!(interpreter.execute(&stmts.next().unwrap()).is_ok());
     }
 }
