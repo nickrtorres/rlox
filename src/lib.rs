@@ -791,7 +791,9 @@ impl Parser {
     }
 
     fn statement(&self) -> Result<Stmt> {
-        if self.match_tokens(vec![TokenType::If]) {
+        if self.match_tokens(vec![TokenType::For]) {
+            return self.for_statement();
+        } else if self.match_tokens(vec![TokenType::If]) {
             return self.if_statement();
         } else if self.match_tokens(vec![TokenType::Print]) {
             self.print_statement()
@@ -802,6 +804,47 @@ impl Parser {
         } else {
             self.expression_statement()
         }
+    }
+
+    fn for_statement(&self) -> Result<Stmt> {
+        self.consume(TokenType::LeftParen)?;
+
+        let initializer = if self.match_tokens(vec![TokenType::Semicolon]) {
+            None
+        } else if self.match_tokens(vec![TokenType::Var]) {
+            Some(self.var_declaration()?)
+        } else {
+            Some(self.expression_statement()?)
+        };
+
+        let condition = if !self.check(&TokenType::Semicolon) {
+            *self.expression()?
+        } else {
+            Expr::Literal(Object::Bool(true))
+        };
+
+        self.consume(TokenType::Semicolon)?;
+
+        let increment = if !self.check(&TokenType::RightParen) {
+            Some(*self.expression()?)
+        } else {
+            None
+        };
+
+        self.consume(TokenType::RightParen)?;
+
+        let mut body = self.statement()?;
+        if let Some(increment) = increment {
+            body = Stmt::Block(vec![body, Stmt::Expression(increment)]);
+        }
+
+        body = Stmt::While(condition, Box::new(body));
+
+        if let Some(initializer) = initializer {
+            body = Stmt::Block(vec![initializer, body]);
+        }
+
+        Ok(body)
     }
 
     fn while_statement(&self) -> Result<Stmt> {
