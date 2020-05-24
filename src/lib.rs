@@ -533,7 +533,7 @@ impl Interpreter {
         assert_eq!(1, Rc::strong_count(&self.environment));
         Rc::get_mut(&mut self.environment)
             .ok_or(RloxError::Unreachable)
-            .and_then(|e| e.flatten())
+            .and_then(Environment::flatten)
     }
 
     fn evaluate(&mut self, expr: &Expr) -> Result<Object> {
