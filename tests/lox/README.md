@@ -1,4 +1,4 @@
-This directory contains sample `lox` program from the [crafting interpreters]
+This directory contains sample `lox` programs from the [crafting interpreters]
 repository. [LICENSE] is provided to conform to the crafting interpreters
 license.
 
