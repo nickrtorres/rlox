@@ -5,16 +5,16 @@ Java. There are a number of incomplete features in this repository. An
 incomplete list is provided below.
 
 ### Sections from [Crafting Interpreters]
-- [x]Scanning
-- [x]Representing Code
-- [x]Parsing Expressions
-- [x]Evaluating Expressions
-- [x]Statements and State
-- [x]Control Flow
-- [ ]Functions
-- [ ]Resolving and Binding
-- [ ]Classes
-- [ ]Inheritance
+- [x] Scanning
+- [x] Representing Code
+- [x] Parsing Expressions
+- [x] Evaluating Expressions
+- [x] Statements and State
+- [x] Control Flow
+- [ ] Functions
+- [ ] Resolving and Binding
+- [ ] Classes
+- [ ] Inheritance
 
 ### General
 - [ ] Error handling
