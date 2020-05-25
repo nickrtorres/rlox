@@ -25,29 +25,21 @@ fn cmd(category: &str, test: &str) -> Result<Vec<u8>> {
     Ok(output.stdout)
 }
 
-#[test]
-fn lox_assignment_associativity() -> Result<()> {
-    let actual = cmd("assignment", "associativity")?;
-    let expected = expected_output("assignment", "associativity")?;
+macro_rules! verify_rlox_program {
+    ($category:expr, $test: expr) => {
+        paste::item! {
+            #[test]
+            fn [<lox_ $category _ $test>]() -> Result<()> {
+                let actual = cmd($category, $test)?;
+                let expected = expected_output($category, $test)?;
 
-    assert_eq!(actual, expected);
-    Ok(())
+                assert_eq!(actual, expected);
+                Ok(())
+            }
+        }
+    };
 }
 
-#[test]
-fn lox_assignment_global() -> Result<()> {
-    let actual = cmd("assignment", "global")?;
-    let expected = expected_output("assignment", "global")?;
-
-    assert_eq!(actual, expected);
-    Ok(())
-}
-
-#[test]
-fn lox_assignment_syntax() -> Result<()> {
-    let actual = cmd("assignment", "syntax")?;
-    let expected = expected_output("assignment", "syntax")?;
-
-    assert_eq!(actual, expected);
-    Ok(())
-}
+verify_rlox_program! {"assignment", "associativity"}
+verify_rlox_program! {"assignment", "global"}
+verify_rlox_program! {"assignment", "syntax"}
