@@ -9,8 +9,7 @@ type Result<T> = result::Result<T, Error>;
 
 /// Gets the correct stdout file given the category and test
 fn expected_output(category: &str, test: &str) -> Result<Vec<u8>> {
-    let output_base = "tests/output";
-    let mut f = File::open(format!("{}/{}/{}.stdout", output_base, category, test))?;
+    let mut f = File::open(format!("tests/output/{}/{}.stdout", category, test))?;
 
     let mut buffer = Vec::new();
     f.read_to_end(&mut buffer)?;
