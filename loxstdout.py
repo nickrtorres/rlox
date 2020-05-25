@@ -12,7 +12,7 @@ def fail_if_fnf(f):
 
 if __name__ == '__main__':
     if len(sys.argv) != 3:
-        print(f'{sys.argv[0]}: usage: {sys.argv[0]}: [test category] [test name]', file=sys.stderr)
+        print(f'{sys.argv[0]}: usage: {sys.argv[0]} [test category] [test name]', file=sys.stderr)
         sys.exit(1)
 
     test = f'tests/lox/{sys.argv[1]}/{sys.argv[2]}.lox'
