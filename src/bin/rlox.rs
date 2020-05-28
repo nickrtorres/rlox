@@ -1,12 +1,13 @@
-extern crate rlox;
-use rlox::{Interpreter, Parser, RloxError, Scanner};
-
-use program::perror;
 use std::env;
 use std::error;
 use std::fs::File;
 use std::io::{self, stdin, BufRead, BufReader, Write};
 use std::result;
+
+use program::perror;
+
+extern crate rlox;
+use rlox::core::{Interpreter, Parser, RloxError, Scanner};
 
 type Error = Box<dyn error::Error>;
 type Result<T> = result::Result<T, Error>;

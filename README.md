@@ -20,7 +20,7 @@ incomplete list is provided below.
 - [ ] Error handling
 - [ ] Documentation
 - [ ] Tests
-- [ ] Modules
+- [x] Modules
 
 
 ## Building
