@@ -245,6 +245,8 @@ pub enum Object {
     Number(f64),
     /// Emulates a [Java `String`](https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/lang/String.html)
     String(String),
+    /// The return type of Lox's native function `Time`
+    Time(u128),
 }
 
 impl fmt::Display for Object {
@@ -254,6 +256,7 @@ impl fmt::Display for Object {
             Object::Nil => write!(f, "nil"),
             Object::Number(n) => write!(f, "{}", n),
             Object::String(s) => write!(f, "{}", s),
+            Object::Time(t) => write!(f, "{}", t),
         }
     }
 }
