@@ -249,6 +249,17 @@ pub enum Object {
     Time(u128),
 }
 
+struct LoxCallable {
+    arity: u32,
+    call: fn(&mut Interpreter, Vec<Object>) -> Result<Object>,
+}
+
+impl fmt::Debug for LoxCallable {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        return write!(f, "fn");
+    }
+}
+
 impl fmt::Display for Object {
     fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
         match self {
