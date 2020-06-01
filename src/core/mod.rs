@@ -1,5 +1,6 @@
 use std::error;
 use std::fmt;
+use std::ptr;
 use std::rc::Rc;
 use std::result;
 
@@ -247,9 +248,11 @@ pub enum Object {
     String(String),
     /// The return type of Lox's native function `Time`
     Time(u128),
+    Callable(LoxCallable),
 }
 
-struct LoxCallable {
+#[derive(Clone)]
+pub struct LoxCallable {
     arity: u32,
     call: fn(&mut Interpreter, Vec<Object>) -> Result<Object>,
 }
@@ -257,6 +260,12 @@ struct LoxCallable {
 impl fmt::Debug for LoxCallable {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         return write!(f, "fn");
+    }
+}
+
+impl PartialEq for LoxCallable {
+    fn eq(&self, other: &Self) -> bool {
+        self.arity == other.arity && ptr::eq(&self.call, &other.call)
     }
 }
 
@@ -268,6 +277,7 @@ impl fmt::Display for Object {
             Object::Number(n) => write!(f, "{}", n),
             Object::String(s) => write!(f, "{}", s),
             Object::Time(t) => write!(f, "{}", t),
+            Object::Callable(_) => unimplemented!(),
         }
     }
 }
