@@ -1,7 +1,7 @@
 use std::cell::Cell;
 use std::mem::discriminant;
 
-use super::{Expr, Object, Result, RloxError, Stmt, Token, TokenType};
+use super::{Expr, FunctionStmt, Object, Result, RloxError, Stmt, Token, TokenType};
 
 /// Parses a series of Tokens into an abstract syntax tree
 ///
@@ -95,7 +95,11 @@ impl Parser {
         self.consume(TokenType::RightParen)?;
         let body = self.block()?;
 
-        Ok(Stmt::Function(name, parameters, body))
+        Ok(Stmt::Function(FunctionStmt {
+            name,
+            parameters,
+            body,
+        }))
     }
 
     fn var_declaration(&self) -> Result<Stmt> {

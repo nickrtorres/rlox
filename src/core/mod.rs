@@ -298,10 +298,17 @@ pub enum Expr {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct FunctionStmt {
+    name: Token,
+    parameters: Vec<Token>,
+    body: Vec<Stmt>,
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Stmt {
     Block(Vec<Stmt>),
     If(Expr, Box<Stmt>, Option<Box<Stmt>>),
-    Function(Token, Vec<Token>, Vec<Stmt>),
+    Function(FunctionStmt),
     Expression(Expr),
     Print(Expr),
     Var(Token, Option<Expr>),
