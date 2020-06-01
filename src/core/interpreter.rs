@@ -1,8 +1,9 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::time::{SystemTime, UNIX_EPOCH};
 
-use super::{Expr, Object, Result, RloxError, Stmt, Token, TokenType};
+use super::{Expr, LoxCallable, Object, Result, RloxError, Stmt, Token, TokenType};
 
 #[derive(Debug)]
 struct Environment {
@@ -11,11 +12,14 @@ struct Environment {
 }
 
 impl Environment {
-    fn new() -> Self {
-        Environment {
+    fn with_global(g: (&str, Object)) -> Self {
+        let mut env = Environment {
             values: HashMap::new(),
             enclosing: None,
-        }
+        };
+
+        env.define(&Rc::from(g.0.to_owned()), g.1);
+        env
     }
 
     fn from(enclosing: &Rc<Environment>) -> Self {
@@ -82,8 +86,20 @@ pub struct Interpreter {
 
 impl Interpreter {
     pub fn new() -> Self {
+        let clock_fn = LoxCallable {
+            arity: 0,
+            call: |_, _| {
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .map_err(|_| RloxError::Unreachable)
+                    .map(|t| Object::Time(t.as_millis()))
+            },
+        };
         Interpreter {
-            environment: Rc::new(Environment::new()),
+            environment: Rc::new(Environment::with_global((
+                "clock",
+                Object::Callable(clock_fn),
+            ))),
         }
     }
 
