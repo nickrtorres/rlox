@@ -54,6 +54,10 @@ impl Parser {
     }
 
     fn declaration(&self) -> Result<Stmt> {
+        if self.match_tokens(vec![TokenType::Fun]) {
+            return self.function();
+        }
+
         if self.match_tokens(vec![TokenType::Var]) {
             return self.var_declaration().map_err(|e| {
                 self.synchronize();
@@ -65,6 +69,33 @@ impl Parser {
             self.synchronize();
             e
         })
+    }
+
+    fn function(&self) -> Result<Stmt> {
+        let name = self.consume(TokenType::Identifier)?;
+        self.consume(TokenType::LeftParen)?;
+        let mut parameters = Vec::new();
+
+        // TODO why does `check` take a ref?
+        if !self.check(&TokenType::RightParen) {
+            loop {
+                if parameters.len() >= 255 {
+                    // TODO define actual TooManyArgs err
+                    return Err(RloxError::Unreachable);
+                }
+
+                parameters.push(self.consume(TokenType::Identifier)?);
+
+                if !self.match_tokens(vec![TokenType::Comma]) {
+                    break;
+                }
+            }
+        }
+
+        self.consume(TokenType::RightParen)?;
+        let body = self.block()?;
+
+        Ok(Stmt::Function(name, parameters, body))
     }
 
     fn var_declaration(&self) -> Result<Stmt> {

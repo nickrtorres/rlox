@@ -301,6 +301,7 @@ pub enum Expr {
 pub enum Stmt {
     Block(Vec<Stmt>),
     If(Expr, Box<Stmt>, Option<Box<Stmt>>),
+    Function(Token, Vec<Token>, Vec<Stmt>),
     Expression(Expr),
     Print(Expr),
     Var(Token, Option<Expr>),
