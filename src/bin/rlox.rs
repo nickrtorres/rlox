@@ -1,7 +1,7 @@
 use std::env;
 use std::error;
-use std::fs::File;
-use std::io::{self, stdin, BufRead, BufReader, Write};
+use std::fs::read_to_string;
+use std::io::{self, stdin, BufRead, Write};
 use std::result;
 
 use program::perror;
@@ -37,12 +37,10 @@ fn run_prompt() -> Result<()> {
 }
 
 fn run_file(f: Option<&String>) -> Result<()> {
-    let file = File::open(f.ok_or(RloxError::Unreachable)?)?;
-    let buf = BufReader::new(file);
+    let file = read_to_string(f.ok_or(RloxError::Unreachable)?)?;
+
     let mut interpreter = Interpreter::new();
-    for line in buf.lines() {
-        run(line?, &mut interpreter)?;
-    }
+    run(file, &mut interpreter)?;
     Ok(())
 }
 

@@ -40,6 +40,15 @@ macro_rules! verify_rlox_program {
     };
 }
 
+// Assignment
 verify_rlox_program! {"assignment", "associativity"}
 verify_rlox_program! {"assignment", "global"}
 verify_rlox_program! {"assignment", "syntax"}
+
+// Functions
+verify_rlox_program! {"function", "empty_body"}
+verify_rlox_program! {"function", "local_recursion"}
+verify_rlox_program! {"function", "mutual_recursion"}
+verify_rlox_program! {"function", "parameters"}
+verify_rlox_program! {"function", "print"}
+verify_rlox_program! {"function", "recursion"}

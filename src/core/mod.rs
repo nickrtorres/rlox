@@ -1,13 +1,14 @@
 use std::error;
 use std::fmt;
-use std::ptr;
 use std::rc::Rc;
 use std::result;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 mod interpreter;
 mod parser;
 mod scanner;
 
+type Environment = interpreter::Environment;
 pub type Interpreter = interpreter::Interpreter;
 pub type Parser = parser::Parser;
 pub type Result<T> = result::Result<T, RloxError>;
@@ -50,6 +51,12 @@ pub enum RloxError {
     UndefinedVariable,
     /// An invalid assignment was attempted
     InvalidAssignment,
+    /// An attempt was made to mutate a non unique Rc ptr
+    ///
+    /// Maybe this should be an assertion rather than a user facing error. This
+    /// is really an implementation detail of the interpreter.
+    NonUniqueRc,
+    Return(Object),
 }
 
 impl fmt::Display for RloxError {
@@ -251,21 +258,45 @@ pub enum Object {
     Callable(LoxCallable),
 }
 
-#[derive(Clone)]
-pub struct LoxCallable {
-    arity: u32,
-    call: fn(&mut Interpreter, Vec<Object>) -> Result<Object>,
+#[derive(PartialEq, Debug, Clone)]
+pub enum LoxCallable {
+    Clock,
+    UserDefined(FunctionStmt),
 }
 
-impl fmt::Debug for LoxCallable {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        return write!(f, "fn");
+impl LoxCallable {
+    pub fn call(&self, interpreter: &mut Interpreter, arguments: Vec<Object>) -> Result<Object> {
+        match self {
+            Self::Clock => SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map_err(|_| RloxError::Unreachable)
+                .map(|t| Object::Time(t.as_millis())),
+            Self::UserDefined(f) => {
+                assert_eq!(f.parameters.len(), arguments.len());
+                let mut environment = Environment::from(&interpreter.environment);
+
+                // TODO: don't clone
+                for (param, arg) in f.parameters.iter().zip(arguments.iter()) {
+                    environment.define(&param.lexeme, arg.clone())
+                }
+
+                if let Err(e) = interpreter.execute_block(&f.body, environment) {
+                    match e {
+                        RloxError::Return(v) => return Ok(v),
+                        _ => return Err(e),
+                    }
+                }
+
+                Ok(Object::Nil)
+            }
+        }
     }
-}
 
-impl PartialEq for LoxCallable {
-    fn eq(&self, other: &Self) -> bool {
-        self.arity == other.arity && ptr::eq(&self.call, &other.call)
+    pub fn arity(&self) -> usize {
+        match self {
+            Self::Clock => 0,
+            Self::UserDefined(f) => f.parameters.len(),
+        }
     }
 }
 
@@ -277,7 +308,10 @@ impl fmt::Display for Object {
             Object::Number(n) => write!(f, "{}", n),
             Object::String(s) => write!(f, "{}", s),
             Object::Time(t) => write!(f, "{}", t),
-            Object::Callable(_) => unimplemented!(),
+            Object::Callable(c) => match c {
+                LoxCallable::Clock => write!(f, "<native fn>"),
+                _ => unimplemented!(),
+            },
         }
     }
 }
@@ -286,10 +320,11 @@ impl fmt::Display for Object {
 /// - Defines an abstract class: Expr
 /// - Creates a subclass for each variant (i.e. Binary, Grouping, Literal, Unary)
 /// - Uses the visitor pattern to dispatch the correct method for each type.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Expr {
     Assign(Token, Box<Expr>),
     Binary(Box<Expr>, Token, Box<Expr>),
+    Call(Box<Expr>, Token, Vec<Expr>),
     Grouping(Box<Expr>),
     Literal(Object),
     Logical(Box<Expr>, Token, Box<Expr>),
@@ -297,20 +332,22 @@ pub enum Expr {
     Variable(Token),
 }
 
-#[derive(Debug, PartialEq)]
+// TODO: making this clone is :((
+#[derive(Debug, PartialEq, Clone)]
 pub struct FunctionStmt {
     name: Token,
     parameters: Vec<Token>,
     body: Vec<Stmt>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Stmt {
     Block(Vec<Stmt>),
     If(Expr, Box<Stmt>, Option<Box<Stmt>>),
-    Function(FunctionStmt),
+    Function(LoxCallable),
     Expression(Expr),
     Print(Expr),
+    Return(Token, Option<Expr>),
     Var(Token, Option<Expr>),
     While(Expr, Box<Stmt>),
 }

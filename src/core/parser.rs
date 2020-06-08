@@ -1,7 +1,7 @@
 use std::cell::Cell;
 use std::mem::discriminant;
 
-use super::{Expr, FunctionStmt, Object, Result, RloxError, Stmt, Token, TokenType};
+use super::{Expr, FunctionStmt, LoxCallable, Object, Result, RloxError, Stmt, Token, TokenType};
 
 /// Parses a series of Tokens into an abstract syntax tree
 ///
@@ -93,13 +93,14 @@ impl Parser {
         }
 
         self.consume(TokenType::RightParen)?;
+        self.consume(TokenType::LeftBrace)?;
         let body = self.block()?;
 
-        Ok(Stmt::Function(FunctionStmt {
+        Ok(Stmt::Function(LoxCallable::UserDefined(FunctionStmt {
             name,
             parameters,
             body,
-        }))
+        })))
     }
 
     fn var_declaration(&self) -> Result<Stmt> {
@@ -122,6 +123,8 @@ impl Parser {
             return self.if_statement();
         } else if self.match_tokens(vec![TokenType::Print]) {
             self.print_statement()
+        } else if self.match_tokens(vec![TokenType::Return]) {
+            self.return_statement()
         } else if self.match_tokens(vec![TokenType::While]) {
             self.while_statement()
         } else if self.match_tokens(vec![TokenType::LeftBrace]) {
@@ -129,6 +132,19 @@ impl Parser {
         } else {
             self.expression_statement()
         }
+    }
+
+    fn return_statement(&self) -> Result<Stmt> {
+        let keyword = self.previous()?;
+
+        let value = if !self.check(&TokenType::Semicolon) {
+            Some(*self.expression()?)
+        } else {
+            None
+        };
+
+        self.consume(TokenType::Semicolon)?;
+        Ok(Stmt::Return(keyword, value))
     }
 
     fn for_statement(&self) -> Result<Stmt> {
@@ -359,7 +375,42 @@ impl Parser {
             return Ok(Box::new(Expr::Unary(operator, right)));
         }
 
-        self.primary()
+        self.call()
+    }
+
+    fn call(&self) -> Result<Box<Expr>> {
+        let mut expr = self.primary()?;
+
+        loop {
+            if self.match_tokens(vec![TokenType::LeftParen]) {
+                expr = self.finish_call(expr)?;
+            } else {
+                break;
+            }
+        }
+
+        Ok(expr)
+    }
+
+    fn finish_call(&self, callee: Box<Expr>) -> Result<Box<Expr>> {
+        let mut arguments = Vec::new();
+
+        if !self.check(&TokenType::RightParen) {
+            loop {
+                if arguments.len() >= 255 {
+                    return Err(RloxError::Unimplemented);
+                }
+
+                arguments.push(*self.expression()?);
+
+                if !self.match_tokens(vec![TokenType::Comma]) {
+                    break;
+                }
+            }
+        }
+
+        let paren = self.consume(TokenType::RightParen)?;
+        Ok(Box::new(Expr::Call(callee, paren, arguments)))
     }
 
     fn primary(&self) -> Result<Box<Expr>> {
@@ -633,9 +684,30 @@ mod tests {
     }
 
     #[test]
-    fn it_is_a_wip() {
-        let scanner = Scanner::new("var foo = \"bar\";".to_owned());
+    fn it_can_parse_a_stmt() {
+        let scanner = Scanner::new("var a = true;".to_owned());
         let parser = Parser::new(scanner.scan_tokens());
-        assert_eq!(Err(RloxError::Unimplemented), parser.parse());
+        assert!(parser.parse_stmts().is_ok());
+    }
+
+    #[test]
+    fn it_can_parse_a_block() {
+        let scanner = Scanner::new("{ print \"hello\"; }".to_owned());
+        let parser = Parser::new(scanner.scan_tokens());
+        assert!(parser.parse_stmts().is_ok())
+    }
+
+    #[test]
+    fn it_can_parse_a_nested_block() {
+        let scanner = Scanner::new("{ { print \"hello\"; } }".to_owned());
+        let parser = Parser::new(scanner.scan_tokens());
+        assert!(parser.parse_stmts().is_ok())
+    }
+
+    #[test]
+    fn it_can_parse_a_function() {
+        let scanner = Scanner::new("fun a () { print \"hello\"; }".to_owned());
+        let parser = Parser::new(scanner.scan_tokens());
+        assert!(parser.parse_stmts().is_ok())
     }
 }

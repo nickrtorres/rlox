@@ -1,35 +1,43 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::{Expr, LoxCallable, Object, Result, RloxError, Stmt, Token, TokenType};
 
-#[derive(Debug)]
-struct Environment {
+/// Checks if an Rc is unique
+///
+/// Returns RloxError::NonUniqueRc is the strong count or weak_count is greater
+/// than 1
+fn fail_if_not_unique<T>(ptr: &Rc<T>) -> Result<()> {
+    if Rc::strong_count(ptr) > 1 || Rc::weak_count(ptr) > 1 {
+        return Err(RloxError::NonUniqueRc);
+    }
+
+    Ok(())
+}
+
+#[derive(Debug, Clone)]
+pub struct Environment {
     values: HashMap<Rc<str>, Object>,
     enclosing: Option<Rc<Environment>>,
 }
 
 impl Environment {
-    fn with_global(g: (&str, Object)) -> Self {
-        let mut env = Environment {
+    pub fn new() -> Self {
+        Environment {
             values: HashMap::new(),
             enclosing: None,
-        };
-
-        env.define(&Rc::from(g.0.to_owned()), g.1);
-        env
+        }
     }
 
-    fn from(enclosing: &Rc<Environment>) -> Self {
+    pub fn from(enclosing: &Rc<Environment>) -> Self {
         Environment {
             values: HashMap::new(),
             enclosing: Some(Rc::clone(enclosing)),
         }
     }
 
-    fn define(&mut self, name: &Rc<str>, value: Object) {
+    pub fn define(&mut self, name: &Rc<str>, value: Object) {
         self.values.insert(Rc::clone(name), value);
         assert!(self.values.len() > 0);
     }
@@ -70,9 +78,7 @@ impl Environment {
         let enclosing = self.enclosing.take().ok_or(RloxError::Unreachable)?;
 
         // we're about to consume enclosing! make sure there aren't any other users
-        if Rc::strong_count(&enclosing) != 1 {
-            return Err(RloxError::Unreachable);
-        }
+        fail_if_not_unique(&enclosing)?;
 
         *self = Rc::try_unwrap(enclosing).map_err(|_| RloxError::Unreachable)?;
 
@@ -81,25 +87,17 @@ impl Environment {
 }
 
 pub struct Interpreter {
-    environment: Rc<Environment>,
+    pub environment: Rc<Environment>,
 }
 
 impl Interpreter {
+    // TODO: Not using global environment like jlox. Maybe this is bad.
     pub fn new() -> Self {
-        let clock_fn = LoxCallable {
-            arity: 0,
-            call: |_, _| {
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .map_err(|_| RloxError::Unreachable)
-                    .map(|t| Object::Time(t.as_millis()))
-            },
-        };
+        let clock_fn = LoxCallable::Clock;
+        let mut environment = Environment::new();
+        environment.define(&Rc::from("clock".to_owned()), Object::Callable(clock_fn));
         Interpreter {
-            environment: Rc::new(Environment::with_global((
-                "clock",
-                Object::Callable(clock_fn),
-            ))),
+            environment: Rc::new(environment),
         }
     }
 
@@ -114,7 +112,7 @@ impl Interpreter {
     fn execute(&mut self, statement: &Stmt) -> Result<()> {
         match statement {
             Stmt::Block(statements) => {
-                assert_eq!(1, Rc::strong_count(&self.environment));
+                fail_if_not_unique(&self.environment)?;
                 self.execute_block(statements, Environment::from(&self.environment))?;
             }
             Stmt::If(expr, then_branch, else_branch) => {
@@ -142,19 +140,50 @@ impl Interpreter {
                     self.execute(&stmt)?;
                 }
             }
+            Stmt::Function(f) => {
+                let name = match f {
+                    LoxCallable::UserDefined(s) => &s.name.lexeme,
+                    _ => return Err(RloxError::Unreachable),
+                };
+
+                Rc::get_mut(&mut self.environment)
+                    .map(|e| e.define(name, Object::Callable(f.clone())))
+                    .ok_or(RloxError::Unreachable)?;
+            }
+            Stmt::Return(_, value) => {
+                let mut v = Object::Nil;
+                if let Some(c) = value {
+                    v = self.evaluate(c)?;
+                }
+
+                return Err(RloxError::Return(v));
+            }
             _ => {}
         }
 
         Ok(())
     }
 
-    fn execute_block(&mut self, statements: &[Stmt], environment: Environment) -> Result<()> {
+    pub fn execute_block(&mut self, statements: &[Stmt], environment: Environment) -> Result<()> {
         self.environment = Rc::new(environment);
         for statement in statements {
-            self.execute(statement)?;
+            if let Err(e) = self.execute(statement) {
+                match e {
+                    // Make sure to flatten our environment before returning a
+                    // value to the caller
+                    RloxError::Return(v) => {
+                        fail_if_not_unique(&self.environment)?;
+                        Rc::get_mut(&mut self.environment)
+                            .ok_or(RloxError::Unreachable)
+                            .and_then(Environment::flatten)?;
+                        return Err(RloxError::Return(v));
+                    }
+                    _ => return Err(e),
+                }
+            }
         }
 
-        assert_eq!(1, Rc::strong_count(&self.environment));
+        fail_if_not_unique(&self.environment)?;
         Rc::get_mut(&mut self.environment)
             .ok_or(RloxError::Unreachable)
             .and_then(Environment::flatten)
@@ -251,6 +280,23 @@ impl Interpreter {
             }
             Expr::Grouping(group) => self.evaluate(group),
             Expr::Variable(token) => Ok(self.environment.get(&token)?),
+            Expr::Call(callee, _, args) => {
+                let function = self.evaluate(callee).and_then(|fun| match fun {
+                    Object::Callable(c) => Ok(c),
+                    _ => Err(RloxError::Unreachable),
+                })?;
+
+                let mut arguments = Vec::with_capacity(args.len());
+                for arg in args.iter() {
+                    arguments.push(self.evaluate(arg)?);
+                }
+
+                if arguments.len() != function.arity() {
+                    return Err(RloxError::Unreachable);
+                }
+
+                function.call(self, arguments)
+            }
         }
     }
 }
