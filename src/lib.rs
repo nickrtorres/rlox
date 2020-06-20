@@ -11,7 +11,6 @@
 //! - `rlox` defines an `interpret` associated function directly on the `Expr`
 //!   type (`jlox` uses a new `Interpreter` object with an `interpret` method
 #![warn(clippy::pedantic)]
-#![feature(str_strip)]
 #![feature(bool_to_option)]
 
 pub mod core;
