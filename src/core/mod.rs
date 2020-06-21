@@ -2,13 +2,11 @@ use std::error;
 use std::fmt;
 use std::rc::Rc;
 use std::result;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 mod interpreter;
 mod parser;
 mod scanner;
 
-type Environment = interpreter::Environment;
 pub type Interpreter = interpreter::Interpreter;
 pub type Parser = parser::Parser;
 pub type Result<T> = result::Result<T, RloxError>;
@@ -265,33 +263,6 @@ pub enum LoxCallable {
 }
 
 impl LoxCallable {
-    pub fn call(&self, interpreter: &mut Interpreter, arguments: Vec<Object>) -> Result<Object> {
-        match self {
-            Self::Clock => SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .map_err(|_| RloxError::Unreachable)
-                .map(|t| Object::Time(t.as_millis())),
-            Self::UserDefined(f) => {
-                assert_eq!(f.parameters.len(), arguments.len());
-                let mut environment = Environment::from(&interpreter.environment);
-
-                // TODO: don't clone
-                for (param, arg) in f.parameters.iter().zip(arguments.iter()) {
-                    environment.define(&param.lexeme, arg.clone())
-                }
-
-                if let Err(e) = interpreter.execute_block(&f.body, environment) {
-                    match e {
-                        RloxError::Return(v) => return Ok(v),
-                        _ => return Err(e),
-                    }
-                }
-
-                Ok(Object::Nil)
-            }
-        }
-    }
-
     pub fn arity(&self) -> usize {
         match self {
             Self::Clock => 0,
