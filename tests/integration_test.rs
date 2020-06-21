@@ -1,54 +1,95 @@
 use std::error;
 use std::fs::File;
 use std::io::Read;
-use std::process::Command;
+use std::process::{Command, Output};
 use std::result;
 
 type Error = Box<dyn error::Error>;
 type Result<T> = result::Result<T, Error>;
 
+enum FileType {
+    Stdout,
+    Stderr,
+}
+
+fn get_file(file_type: FileType, category: &str, test: &str) -> Result<File> {
+    let mut path = format!("tests/output/{}/{}.", category, test);
+
+    match file_type {
+        FileType::Stdout => path.push_str("stdout"),
+        FileType::Stderr => path.push_str("stderr"),
+    }
+
+    let file = File::open(path)?;
+    Ok(file)
+}
+
 /// Gets the correct stdout file given the category and test
-fn expected_output(category: &str, test: &str) -> Result<Vec<u8>> {
-    let mut f = File::open(format!("tests/output/{}/{}.stdout", category, test))?;
-
+fn expected_output(mut file: File) -> Result<Vec<u8>> {
     let mut buffer = Vec::new();
-    f.read_to_end(&mut buffer)?;
-
+    file.read_to_end(&mut buffer)?;
     Ok(buffer)
 }
 
-fn cmd(category: &str, test: &str) -> Result<Vec<u8>> {
+fn cmd(category: &str, test: &str) -> Result<Output> {
     let output = Command::new("./target/debug/rlox")
         .arg(format!("tests/lox/{}/{}.lox", category, test))
         .output()?;
-
-    Ok(output.stdout)
+    Ok(output)
 }
 
-macro_rules! verify_rlox_program {
+macro_rules! verify_rlox_program_ok {
     ($category:expr, $test: expr) => {
         paste::item! {
             #[test]
             fn [<lox_ $category _ $test>]() -> Result<()> {
                 let actual = cmd($category, $test)?;
-                let expected = expected_output($category, $test)?;
+                let expected = expected_output(get_file(FileType::Stdout, $category, $test)?)?;
 
-                assert_eq!(actual, expected);
+                assert_eq!(actual.stdout, expected);
                 Ok(())
             }
         }
     };
 }
 
-// Assignment
-verify_rlox_program! {"assignment", "associativity"}
-verify_rlox_program! {"assignment", "global"}
-verify_rlox_program! {"assignment", "syntax"}
+macro_rules! verify_rlox_program_err {
+    ($category:expr, $test: expr) => {
+        paste::item! {
+            #[test]
+            fn [<lox_ $category _ $test>]() -> Result<()> {
+                let actual = cmd($category, $test)?;
+                let expected = expected_output(get_file(FileType::Stderr, $category, $test)?)?;
 
-// Functions
-verify_rlox_program! {"function", "empty_body"}
-verify_rlox_program! {"function", "local_recursion"}
-verify_rlox_program! {"function", "mutual_recursion"}
-verify_rlox_program! {"function", "parameters"}
-verify_rlox_program! {"function", "print"}
-verify_rlox_program! {"function", "recursion"}
+                assert_eq!(actual.stderr, expected);
+                Ok(())
+            }
+        }
+    };
+}
+
+// Assignment (ok)
+verify_rlox_program_ok! {"assignment", "associativity"}
+verify_rlox_program_ok! {"assignment", "global"}
+verify_rlox_program_ok! {"assignment", "syntax"}
+
+// Function (ok)
+verify_rlox_program_ok! {"function", "empty_body"}
+verify_rlox_program_ok! {"function", "local_recursion"}
+verify_rlox_program_ok! {"function", "mutual_recursion"}
+verify_rlox_program_ok! {"function", "parameters"}
+verify_rlox_program_ok! {"function", "print"}
+verify_rlox_program_ok! {"function", "recursion"}
+
+// Variable (ok)
+verify_rlox_program_ok! {"variable", "early_bound"}
+verify_rlox_program_ok! {"variable", "in_middle_of_block"}
+verify_rlox_program_ok! {"variable", "in_nested_block"}
+
+// Variable (err)
+verify_rlox_program_err! {"variable", "collide_with_parameter"}
+verify_rlox_program_err! {"variable", "duplicate_local"}
+verify_rlox_program_err! {"variable", "duplicate_parameter"}
+
+// Return (err)
+verify_rlox_program_err! {"return", "at_top_level"}

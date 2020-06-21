@@ -7,7 +7,7 @@ use std::result;
 use program::perror;
 
 extern crate rlox;
-use rlox::core::{Interpreter, Parser, RloxError, Scanner};
+use rlox::core::{Interpreter, Parser, Resolver, RloxError, Scanner};
 
 type Error = Box<dyn error::Error>;
 type Result<T> = result::Result<T, Error>;
@@ -15,10 +15,12 @@ type Result<T> = result::Result<T, Error>;
 fn run(buf: String, interpreter: &mut Interpreter) -> Result<()> {
     let scanner = Scanner::new(buf);
     let parser = Parser::new(scanner.scan_tokens());
-    let statements = parser.parse_stmts()?;
+    let mut statements = parser.parse_stmts()?;
 
-    // for some reason `interpreter.interpret(statements)` (no semicolon)
-    // doesn't work?
+    let mut resolver = Resolver::new();
+    resolver.resolve(&mut statements)?;
+    let locals = resolver.into_locals()?;
+    interpreter.resolve(locals);
     interpreter.interpret(statements)?;
 
     Ok(())

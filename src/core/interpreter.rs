@@ -85,10 +85,33 @@ impl Environment {
 
         Ok(())
     }
+
+    fn get_at(&self, distance: usize, name: &Token) -> Result<Object> {
+        self.ancestor(distance, |values| {
+            values
+                .ok_or(RloxError::UndefinedVariable)
+                .and_then(|e| e.get(name))
+        })
+    }
+
+    fn ancestor<F: FnOnce(Option<Rc<Environment>>) -> Result<Object>>(
+        &self,
+        distance: usize,
+        f: F,
+    ) -> Result<Object> {
+        let mut environment: Option<Rc<Environment>> = Some(Rc::new(self.clone()));
+        for _ in 0..distance {
+            // TODO: yikes!
+            environment = environment.map(|e| Rc::clone(&e.enclosing.as_ref().unwrap()))
+        }
+
+        f(environment)
+    }
 }
 
 pub struct Interpreter {
     pub environment: Rc<Environment>,
+    pub locals: HashMap<Expr, usize>,
 }
 
 impl Interpreter {
@@ -99,6 +122,7 @@ impl Interpreter {
         environment.define(&Rc::from("clock".to_owned()), Object::Callable(clock_fn));
         Interpreter {
             environment: Rc::new(environment),
+            locals: HashMap::new(),
         }
     }
 
@@ -280,7 +304,7 @@ impl Interpreter {
                 return self.evaluate(right);
             }
             Expr::Grouping(group) => self.evaluate(group),
-            Expr::Variable(token) => Ok(self.environment.get(&token)?),
+            Expr::Variable(token) => Ok(self.look_up_variable(&token, expr)?),
             Expr::Call(callee, _, args) => {
                 let function = self.evaluate(callee).and_then(|fun| match fun {
                     Object::Callable(c) => Ok(c),
@@ -322,6 +346,17 @@ impl Interpreter {
                 }
             }
         }
+    }
+
+    fn look_up_variable(&mut self, name: &Token, expr: &Expr) -> Result<Object> {
+        self.locals.get(expr).map_or_else(
+            || self.environment.get(name),
+            |distance| self.environment.get_at(*distance, &name),
+        )
+    }
+
+    pub fn resolve(&mut self, map: HashMap<Expr, usize>) {
+        self.locals.extend(map.into_iter());
     }
 }
 
@@ -624,6 +659,16 @@ mod tests {
         let mut stmts = vec_stmts.drain(..);
         let mut interpreter = Interpreter::new();
         assert!(interpreter.execute(&stmts.next().unwrap()).is_ok());
+        assert!(interpreter.execute(&stmts.next().unwrap()).is_ok());
+    }
+
+    #[test]
+    fn it_supports_empty_fun() {
+        let scanner = Scanner::new("fun f() {}".to_owned());
+        let parser = Parser::new(scanner.scan_tokens());
+        let mut vec_stmts = parser.parse_stmts().unwrap();
+        let mut stmts = vec_stmts.drain(..);
+        let mut interpreter = Interpreter::new();
         assert!(interpreter.execute(&stmts.next().unwrap()).is_ok());
     }
 }

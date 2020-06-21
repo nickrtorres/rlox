@@ -1,15 +1,18 @@
 use std::error;
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 use std::result;
 
 mod interpreter;
 mod parser;
+mod resolver;
 mod scanner;
 
 pub type Interpreter = interpreter::Interpreter;
 pub type Parser = parser::Parser;
 pub type Result<T> = result::Result<T, RloxError>;
+pub type Resolver = resolver::Resolver;
 pub type Scanner = scanner::Scanner;
 
 #[derive(Debug, PartialEq)]
@@ -55,6 +58,8 @@ pub enum RloxError {
     /// is really an implementation detail of the interpreter.
     NonUniqueRc,
     Return(Object),
+    VariableRedefinition,
+    ReturnInNonFunction,
 }
 
 impl fmt::Display for RloxError {
@@ -123,6 +128,17 @@ pub enum TokenType {
     While,
 
     Eof,
+}
+
+impl Eq for TokenType {}
+
+impl Hash for TokenType {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            Self::Number(f) => f.to_bits().hash(state),
+            other => other.to_string().hash(state),
+        }
+    }
 }
 
 impl fmt::Display for TokenType {
@@ -206,7 +222,7 @@ impl TokenType {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Eq, Hash, Clone, Debug, PartialEq)]
 pub struct Token {
     token_type: TokenType,
     lexeme: Rc<str>,
@@ -256,7 +272,18 @@ pub enum Object {
     Callable(LoxCallable),
 }
 
-#[derive(PartialEq, Debug, Clone)]
+impl Eq for Object {}
+
+impl Hash for Object {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            Self::Number(f) => f.to_bits().hash(state),
+            other => other.hash(state),
+        }
+    }
+}
+
+#[derive(Eq, Hash, PartialEq, Debug, Clone)]
 pub enum LoxCallable {
     Clock,
     UserDefined(FunctionStmt),
@@ -291,7 +318,7 @@ impl fmt::Display for Object {
 /// - Defines an abstract class: Expr
 /// - Creates a subclass for each variant (i.e. Binary, Grouping, Literal, Unary)
 /// - Uses the visitor pattern to dispatch the correct method for each type.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Eq, Hash, Debug, PartialEq, Clone)]
 pub enum Expr {
     Assign(Token, Box<Expr>),
     Binary(Box<Expr>, Token, Box<Expr>),
@@ -304,14 +331,14 @@ pub enum Expr {
 }
 
 // TODO: making this clone is :((
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Eq, Hash, Debug, PartialEq, Clone)]
 pub struct FunctionStmt {
     name: Token,
     parameters: Vec<Token>,
     body: Vec<Stmt>,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Eq, Hash, Debug, PartialEq, Clone)]
 pub enum Stmt {
     Block(Vec<Stmt>),
     If(Expr, Box<Stmt>, Option<Box<Stmt>>),
