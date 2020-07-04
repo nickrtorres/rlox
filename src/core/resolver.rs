@@ -11,7 +11,7 @@ type FunctionType = Option<Function>;
 
 pub struct Resolver {
     scopes: Stack<HashMap<Rc<str>, bool>>,
-    locals: Option<HashMap<Expr, usize>>,
+    locals: HashMap<Expr, usize>,
     current_function: FunctionType,
 }
 
@@ -19,7 +19,7 @@ impl Resolver {
     pub fn new() -> Self {
         Resolver {
             scopes: Stack::new(),
-            locals: Some(HashMap::new()),
+            locals: HashMap::new(),
             current_function: None,
         }
     }
@@ -32,9 +32,8 @@ impl Resolver {
         Ok(())
     }
 
-    pub fn into_locals(self) -> Result<HashMap<Expr, usize>> {
-        debug_assert!(self.locals.is_some());
-        Ok(self.locals.unwrap())
+    pub fn into_locals(self) -> HashMap<Expr, usize> {
+        self.locals
     }
 
     fn resolve_statment(&mut self, statement: &Stmt) -> Result<()> {
@@ -138,10 +137,7 @@ impl Resolver {
                 //   was found. So, if the variable was found in the current
                 //   scope, it passes in 0. If it’s in the immediately enclosing
                 //   scope, 1. You get the idea."
-                match self.locals {
-                    Some(ref mut m) => m.insert(expr.clone(), self.scopes.len() - 1 - i),
-                    None => return Err(RloxError::Unreachable),
-                };
+                self.locals.insert(expr.clone(), self.scopes.len() - 1 - i);
             }
         }
 

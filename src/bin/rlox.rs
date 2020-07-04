@@ -19,8 +19,7 @@ fn run(buf: String, interpreter: &mut Interpreter) -> Result<()> {
 
     let mut resolver = Resolver::new();
     resolver.resolve(&mut statements)?;
-    let locals = resolver.into_locals()?;
-    interpreter.resolve(locals);
+    interpreter.resolve(resolver.into_locals());
     interpreter.interpret(statements)?;
 
     Ok(())
