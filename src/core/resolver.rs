@@ -76,7 +76,7 @@ impl Resolver {
             Stmt::Function(f) => {
                 let func = match f {
                     LoxCallable::UserDefined(s) => s,
-                    _ => return Err(RloxError::Unreachable),
+                    _ => unreachable!(),
                 };
 
                 self.declare(&func.name)?;
@@ -109,7 +109,8 @@ impl Resolver {
                     if let Some(false) = self.scopes.last().map(|m| m.get(&token.lexeme)).flatten()
                     {
                         // TODO 11.3.3 "Cannot read local variable in its own initializer."
-                        return Err(RloxError::Unreachable);
+                        // I'm not sure if this is a possible state or not
+                        unimplemented!()
                     }
                 }
 

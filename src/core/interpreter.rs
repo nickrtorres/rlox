@@ -60,9 +60,11 @@ impl Environment {
         match self.values.entry(Rc::clone(&name.lexeme)) {
             Entry::Vacant(_) => {
                 if let Some(e) = &mut self.enclosing {
-                    assert_eq!(1, Rc::strong_count(&e));
+                    fail_if_not_unique(&e)?;
+                    // TODO: this ok_or should go away. The previous line validates that the `Rc`
+                    // we're inspecting is unique.
                     return Rc::get_mut(e)
-                        .ok_or(RloxError::Unreachable)
+                        .ok_or(RloxError::NonUniqueRc)
                         .and_then(|nested| nested.assign(name, value));
                 }
 
@@ -76,12 +78,11 @@ impl Environment {
     }
 
     fn flatten(&mut self) -> Result<()> {
-        let enclosing = self.enclosing.take().ok_or(RloxError::Unreachable)?;
+        let enclosing = self.enclosing.take().ok_or_else(|| unreachable!())?;
 
         // we're about to consume enclosing! make sure there aren't any other users
         fail_if_not_unique(&enclosing)?;
-
-        *self = Rc::try_unwrap(enclosing).map_err(|_| RloxError::Unreachable)?;
+        *self = Rc::try_unwrap(enclosing).map_err(|_| unreachable!())?;
 
         Ok(())
     }
@@ -158,7 +159,7 @@ impl Interpreter {
                 let value = self.evaluate(&expr)?;
                 Rc::get_mut(&mut self.environment)
                     .map(|e| e.define(&token.lexeme, value))
-                    .ok_or(RloxError::Unreachable)?;
+                    .ok_or_else(|| unreachable!())?;
             }
             Stmt::While(condition, stmt) => {
                 while let Object::Bool(true) = self.evaluate(&condition)? {
@@ -168,12 +169,13 @@ impl Interpreter {
             Stmt::Function(f) => {
                 let name = match f {
                     LoxCallable::UserDefined(s) => &s.name.lexeme,
-                    _ => return Err(RloxError::Unreachable),
+                    _ => unreachable!(),
                 };
 
+                fail_if_not_unique(&self.environment)?;
                 Rc::get_mut(&mut self.environment)
                     .map(|e| e.define(name, Object::Callable(f.clone())))
-                    .ok_or(RloxError::Unreachable)?;
+                    .ok_or_else(|| unreachable!())?;
             }
             Stmt::Return(_, value) => {
                 let mut v = Object::Nil;
@@ -199,7 +201,7 @@ impl Interpreter {
                     RloxError::Return(v) => {
                         fail_if_not_unique(&self.environment)?;
                         Rc::get_mut(&mut self.environment)
-                            .ok_or(RloxError::Unreachable)
+                            .ok_or_else(|| unreachable!())
                             .and_then(Environment::flatten)?;
                         return Err(RloxError::Return(v));
                     }
@@ -210,7 +212,7 @@ impl Interpreter {
 
         fail_if_not_unique(&self.environment)?;
         Rc::get_mut(&mut self.environment)
-            .ok_or(RloxError::Unreachable)
+            .ok_or_else(|| unreachable!())
             .and_then(Environment::flatten)
     }
 
@@ -219,7 +221,7 @@ impl Interpreter {
             Expr::Assign(token, expr) => {
                 let value = self.evaluate(expr)?;
                 Rc::get_mut(&mut self.environment)
-                    .ok_or(RloxError::Unreachable)
+                    .ok_or_else(|| unreachable!())
                     .and_then(|e| e.assign(&token, value))
             }
             Expr::Binary(left_expr, token, right_expr) => {
@@ -267,7 +269,7 @@ impl Interpreter {
                     },
                     TokenType::BangEqual => Ok(Object::Bool(left != right)),
                     TokenType::EqualEqual => Ok(Object::Bool(left == right)),
-                    _ => Err(RloxError::Unreachable),
+                    _ => unreachable!(),
                 }
             }
             Expr::Unary(token, expr) => {
@@ -285,7 +287,7 @@ impl Interpreter {
                     }
                 }
 
-                Err(RloxError::Unreachable)
+                unreachable!();
             }
             Expr::Literal(obj) => Ok(obj.clone()),
             Expr::Logical(left, token, right) => {
@@ -308,7 +310,7 @@ impl Interpreter {
             Expr::Call(callee, _, args) => {
                 let function = self.evaluate(callee).and_then(|fun| match fun {
                     Object::Callable(c) => Ok(c),
-                    _ => Err(RloxError::Unreachable),
+                    _ => unreachable!(),
                 })?;
 
                 let mut arguments = Vec::with_capacity(args.len());
@@ -317,13 +319,15 @@ impl Interpreter {
                 }
 
                 if arguments.len() != function.arity() {
-                    return Err(RloxError::Unreachable);
+                    // TODO: figure out what to do here
+                    unimplemented!();
                 }
 
                 match function {
+                    // TODO: handle SystemTime::now failing
                     LoxCallable::Clock => SystemTime::now()
                         .duration_since(UNIX_EPOCH)
-                        .map_err(|_| RloxError::Unreachable)
+                        .map_err(|_| unimplemented!())
                         .map(|t| Object::Time(t.as_millis())),
                     LoxCallable::UserDefined(f) => {
                         assert_eq!(f.parameters.len(), arguments.len());

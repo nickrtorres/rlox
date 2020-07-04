@@ -81,7 +81,7 @@ impl Parser {
             loop {
                 if parameters.len() >= 255 {
                     // TODO define actual TooManyArgs err
-                    return Err(RloxError::Unreachable);
+                    unimplemented!();
                 }
 
                 parameters.push(self.consume(TokenType::Identifier)?);
@@ -433,7 +433,7 @@ impl Parser {
             let rv = match &previous.token_type {
                 TokenType::Number(n) => Ok(Box::new(Expr::Literal(Object::Number(*n)))),
                 TokenType::String(s) => Ok(Box::new(Expr::Literal(Object::String(s.to_owned())))),
-                _ => Err(RloxError::Unreachable),
+                _ => unreachable!(),
             };
 
             return rv;
@@ -457,17 +457,17 @@ impl Parser {
             // We already consumed the problematic token.  We need to step back
             // for a second to grab the bad line number. It should be *impossible*
             // for the token we just consumed to not be there.
-            let line = self.previous().map_err(|_| RloxError::Unreachable)?.line;
+            let line = self.previous().map_err(|_| unreachable!())?.line;
 
             match token_type {
                 TokenType::RightParen => return Err(RloxError::UnclosedParenthesis(line)),
                 TokenType::Semicolon => return Err(RloxError::MissingSemicolon(line)),
-                _ => return Err(RloxError::Unreachable),
+                _ => unreachable!(),
             }
         }
 
         // We just validated the next token. It must exist.
-        self.advance().ok_or(RloxError::Unreachable)
+        self.advance().ok_or_else(|| unreachable!())
     }
 
     // TODO: this should not be a vec. it should be a slice or an iterator

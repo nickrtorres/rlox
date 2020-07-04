@@ -24,9 +24,6 @@ pub enum RloxError {
     /// An '(' open parenthesis token was parsed, but no ')' close parenthesis
     /// token was found.
     UnclosedParenthesis(usize),
-    /// A quasi-unreachable block was reached! This is a nicer
-    /// `unreachable!`---by nicer I mean it doesn't `panic`
-    Unreachable,
     /// An unimplemented area as encountered. Since this interpretter is a
     /// WIP, this is a very likely error. Unfortunately, we can no longer
     /// reason about the program after receiving this error, so we must

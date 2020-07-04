@@ -7,7 +7,7 @@ use std::result;
 use program::perror;
 
 extern crate rlox;
-use rlox::core::{Interpreter, Parser, Resolver, RloxError, Scanner};
+use rlox::core::{Interpreter, Parser, Resolver, Scanner};
 
 type Error = Box<dyn error::Error>;
 type Result<T> = result::Result<T, Error>;
@@ -38,7 +38,7 @@ fn run_prompt() -> Result<()> {
 }
 
 fn run_file(f: Option<&String>) -> Result<()> {
-    let file = read_to_string(f.ok_or(RloxError::Unreachable)?)?;
+    let file = read_to_string(f.expect("args[1] does not contain a valid argument"))?;
 
     let mut interpreter = Interpreter::new();
     run(file, &mut interpreter)?;
