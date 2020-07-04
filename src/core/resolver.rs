@@ -24,7 +24,6 @@ impl Resolver {
         }
     }
 
-    // TODO: this invalidates the resolver object. `Resolver::resolve` should move self.
     pub fn resolve(&mut self, statements: &[Stmt]) -> Result<()> {
         for statement in statements {
             self.resolve_statment(statement)?;
