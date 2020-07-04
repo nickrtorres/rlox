@@ -12,7 +12,7 @@ incomplete list is provided below.
 - [x] Statements and State
 - [x] Control Flow
 - [ ] Functions
-- [ ] Resolving and Binding
+- [x] Resolving and Binding
 - [ ] Classes
 - [ ] Inheritance
 
@@ -24,7 +24,7 @@ incomplete list is provided below.
 
 
 ## Building
-`rlox` requires nightly for `#![feature(str_strip)]` and `#![feature(bool_to_option)]`
+`rlox` requires nightly for `#![feature(bool_to_option)]`.
 ```
 $ rustup default nightly
 $ rustup update
