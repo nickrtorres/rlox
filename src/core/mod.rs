@@ -24,11 +24,6 @@ pub enum RloxError {
     /// An '(' open parenthesis token was parsed, but no ')' close parenthesis
     /// token was found.
     UnclosedParenthesis(usize),
-    /// An unimplemented area as encountered. Since this interpretter is a
-    /// WIP, this is a very likely error. Unfortunately, we can no longer
-    /// reason about the program after receiving this error, so we must
-    /// propogate it up to the caller.
-    Unimplemented,
     /// The operand types do not match for the given binary expression. The
     /// tuple elements are in [Polish notation][wiki-NPN] i.e. operator, left, right
     ///

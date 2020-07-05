@@ -398,7 +398,8 @@ impl Parser {
         if !self.check(&TokenType::RightParen) {
             loop {
                 if arguments.len() >= 255 {
-                    return Err(RloxError::Unimplemented);
+                    // TODO: handle this case
+                    unimplemented!();
                 }
 
                 arguments.push(*self.expression()?);
@@ -449,7 +450,8 @@ impl Parser {
             return Ok(Box::new(Expr::Grouping(expr)));
         }
 
-        Err(RloxError::Unimplemented)
+        // TODO is this reachable?
+        unimplemented!();
     }
 
     fn consume(&self, token_type: TokenType) -> Result<Token> {
