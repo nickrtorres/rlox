@@ -54,6 +54,8 @@ pub enum RloxError {
     ReturnInNonFunction,
     PropertyAccessOnNonInstance,
     UndefinedProperty,
+    ThisOutsideOfClass,
+    ReturnValueFromConstructor,
 }
 
 impl fmt::Display for RloxError {
@@ -234,6 +236,16 @@ impl Token {
     }
 }
 
+impl Default for Token {
+    fn default() -> Self {
+        Token {
+            token_type: TokenType::Eof,
+            lexeme: Rc::from(String::new()),
+            line: 0,
+        }
+    }
+}
+
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
         write!(f, "{} {} ", stringify!(self.token_type), self.lexeme)
@@ -311,12 +323,33 @@ impl fmt::Display for LoxClass {
 }
 
 impl LoxCallable {
+    // TODO clean this up
     pub fn arity(&self) -> usize {
         match self {
             Self::Clock => 0,
             Self::UserDefined(f) => f.parameters.len(),
-            Self::ClassDefinition(_) => 0,
-            Self::ClassInstance(_) => 0,
+            Self::ClassDefinition(d) => {
+                if let Some(m) = d
+                    .methods
+                    .iter()
+                    .find(|e| e.name.lexeme == Rc::from("init".to_owned()))
+                {
+                    m.parameters.len()
+                } else {
+                    0
+                }
+            }
+            Self::ClassInstance(c) => {
+                if let Some(m) = c
+                    .methods
+                    .iter()
+                    .find(|e| e.name.lexeme == Rc::from("init".to_owned()))
+                {
+                    m.parameters.len()
+                } else {
+                    0
+                }
+            }
         }
     }
 }
@@ -357,7 +390,9 @@ impl LoxInstance {
             .iter()
             .find(|e| e.name.lexeme == Rc::from(name.to_owned()))
         {
-            return Ok(Object::Callable(LoxCallable::UserDefined(method.clone())));
+            let mut method = method.clone();
+            method.this = Some(self.clone());
+            return Ok(Object::Callable(LoxCallable::UserDefined(method)));
         }
 
         Err(RloxError::UndefinedProperty)
@@ -412,6 +447,7 @@ pub enum Expr {
     Literal(Object),
     Logical(Box<Expr>, Token, Box<Expr>),
     Set(Box<Expr>, Token, Box<Expr>),
+    This(Token),
     Unary(Token, Box<Expr>),
     Variable(Token),
 }
@@ -422,6 +458,8 @@ pub struct FunctionStmt {
     name: Token,
     parameters: Vec<Token>,
     body: Vec<Stmt>,
+    this: Option<LoxInstance>,
+    initializer: bool,
 }
 
 #[derive(Eq, Hash, Debug, PartialEq, Clone)]
@@ -450,15 +488,19 @@ mod tests {
                 name: Token::new(TokenType::Identifier, "bar".to_owned(), 1),
                 parameters: Vec::new(),
                 body: Vec::new(),
+                this: None,
+                initializer: false,
             };
 
             let mut class = LoxClass::new(&Rc::from("foo".to_owned()));
             class.add_method(method.clone());
 
             let instance = LoxInstance::new(class);
+            let mut expected_method = method.clone();
+            expected_method.this = Some(instance.clone());
 
             assert_eq!(
-                Ok(Object::Callable(LoxCallable::UserDefined(method))),
+                Ok(Object::Callable(LoxCallable::UserDefined(expected_method))),
                 instance.get("bar")
             );
         }

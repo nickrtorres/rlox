@@ -118,6 +118,8 @@ impl Parser {
             name,
             parameters,
             body,
+            this: None,
+            initializer: false,
         })))
     }
 
@@ -459,6 +461,10 @@ impl Parser {
             };
 
             return rv;
+        }
+
+        if self.match_tokens(vec![TokenType::This]) {
+            return Ok(Box::new(Expr::This(self.previous()?)));
         }
 
         if self.match_tokens(vec![TokenType::Identifier]) {

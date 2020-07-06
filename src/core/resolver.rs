@@ -9,12 +9,17 @@ type Stack<T> = Vec<T>;
 enum FunctionType {
     Function,
     Method,
+    Initializer,
 }
+
+#[derive(Clone, Copy)]
+struct ClassType;
 
 pub struct Resolver {
     scopes: Stack<HashMap<Rc<str>, bool>>,
     locals: HashMap<Expr, usize>,
     current_function: Option<FunctionType>,
+    current_class: Option<ClassType>,
 }
 
 impl Resolver {
@@ -23,6 +28,7 @@ impl Resolver {
             scopes: Stack::new(),
             locals: HashMap::new(),
             current_function: None,
+            current_class: None,
         }
     }
 
@@ -46,15 +52,29 @@ impl Resolver {
                 self.end_scope();
             }
             Stmt::Class(name, methods) => {
+                let enclosing = self.current_class;
+                self.current_class = Some(ClassType);
                 self.declare(name)?;
+                self.define(name);
+
+                self.begin_scope();
+                self.scopes
+                    .last_mut()
+                    .map(|m| m.insert(Rc::from("this".to_owned()), true));
                 for method in methods {
                     if let Stmt::Function(LoxCallable::UserDefined(f)) = method {
-                        self.resolve_function(f, Some(FunctionType::Method))?;
+                        if f.name.lexeme == Rc::from("init".to_owned()) {
+                            self.resolve_function(f, Some(FunctionType::Initializer))?;
+                        } else {
+                            self.resolve_function(f, Some(FunctionType::Method))?;
+                        }
                     } else {
                         unreachable!();
                     }
                 }
-                self.define(name);
+
+                self.end_scope();
+                self.current_class = enclosing;
             }
             Stmt::If(expr, then_branch, else_branch) => {
                 self.resolve_expression(expr)?;
@@ -69,9 +89,11 @@ impl Resolver {
             Stmt::Return(_, Some(expr)) => {
                 if self.current_function.is_none() {
                     return Err(RloxError::ReturnInNonFunction);
+                } else if let Some(FunctionType::Initializer) = self.current_function {
+                    return Err(RloxError::ReturnValueFromConstructor);
+                } else {
+                    self.resolve_expression(&expr)?;
                 }
-
-                self.resolve_expression(&expr)?;
             }
             Stmt::Var(name, initializer) => {
                 self.declare(name)?;
@@ -140,6 +162,13 @@ impl Resolver {
             Expr::Set(object, _, value) => {
                 self.resolve_expression(object)?;
                 self.resolve_expression(value)?;
+            }
+            Expr::This(token) => {
+                if self.current_class.is_none() {
+                    return Err(RloxError::ThisOutsideOfClass);
+                }
+
+                self.resolve_local(expr, token)?;
             }
         }
 

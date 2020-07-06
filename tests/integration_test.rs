@@ -73,6 +73,17 @@ verify_rlox_program_ok! {"assignment", "associativity"}
 verify_rlox_program_ok! {"assignment", "global"}
 verify_rlox_program_ok! {"assignment", "syntax"}
 
+// Constructor (ok)
+verify_rlox_program_ok! {"constructor", "arguments"}
+verify_rlox_program_ok! {"constructor", "call_init_explicitly"}
+verify_rlox_program_ok! {"constructor", "default"}
+verify_rlox_program_ok! {"constructor", "early_return"}
+verify_rlox_program_ok! {"constructor", "init_not_method"}
+verify_rlox_program_ok! {"constructor", "return_in_nested_function"}
+
+// Constructor (err)
+verify_rlox_program_err! {"constructor", "return_value"}
+
 // Field (ok)
 verify_rlox_program_ok! {"field", "many"}
 verify_rlox_program_ok! {"field", "on_instance"}
@@ -88,6 +99,13 @@ verify_rlox_program_ok! {"function", "recursion"}
 // Method (ok)
 verify_rlox_program_ok! {"method", "arity"}
 verify_rlox_program_ok! {"method", "empty_block"}
+
+// This (ok)
+verify_rlox_program_ok! {"this", "this_in_method"}
+
+// This (err)
+verify_rlox_program_err! {"this", "this_at_top_level"}
+verify_rlox_program_err! {"this", "this_in_top_level_function"}
 
 // Variable (ok)
 verify_rlox_program_ok! {"variable", "early_bound"}

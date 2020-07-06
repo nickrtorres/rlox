@@ -158,7 +158,9 @@ impl Interpreter {
                 //     - TODO can this be an invariant?
                 for method in methods {
                     if let Stmt::Function(LoxCallable::UserDefined(f)) = method {
-                        klass.add_method(f.clone());
+                        let mut f = f.clone();
+                        f.initializer = f.name.lexeme == Rc::from("init".to_owned());
+                        klass.add_method(f);
                     } else {
                         unreachable!();
                     }
@@ -178,7 +180,27 @@ impl Interpreter {
                 println!("{}", value);
             }
             Stmt::Var(token, Some(expr)) => {
-                let value = self.evaluate(&expr)?;
+                let value = match self.evaluate(&expr)? {
+                    Object::Callable(LoxCallable::ClassInstance(c)) => {
+                        // If we just initialized a class instance then we need to
+                        // replace the 'this' variable in our environment with ourselves
+                        //
+                        // If this variable does not exist, then we didn't run a user defined
+                        // constructor. This is not an error. We'll just propogate the original
+                        // instance.
+                        let mut token = Token::default();
+                        token.lexeme = Rc::from("this".to_owned());
+                        match self.environment.get(&token) {
+                            Ok(t) => t,
+                            Err(RloxError::UndefinedVariable) => {
+                                Object::Callable(LoxCallable::ClassInstance(c))
+                            }
+                            _ => unreachable!(),
+                        }
+                    }
+                    v => v,
+                };
+
                 Rc::get_mut(&mut self.environment)
                     .map(|e| e.define(&token.lexeme, value))
                     .ok_or_else(|| unreachable!())?;
@@ -360,6 +382,21 @@ impl Interpreter {
                         .map(|t| Object::Time(t.as_millis())),
                     LoxCallable::UserDefined(f) => {
                         assert_eq!(f.parameters.len(), arguments.len());
+
+                        // The 'this' pointer needs to be defined in our parent environment.
+                        if let Some(instance) = f.this {
+                            Rc::get_mut(&mut self.environment)
+                                .and_then(|e| {
+                                    e.define(
+                                        &Rc::from("this".to_owned()),
+                                        Object::Callable(LoxCallable::ClassInstance(instance)),
+                                    );
+
+                                    Some(())
+                                })
+                                .ok_or_else(|| unreachable!())?;
+                        }
+
                         let mut environment = Environment::from(&self.environment);
 
                         // TODO: don't clone
@@ -369,26 +406,55 @@ impl Interpreter {
 
                         if let Err(e) = self.execute_block(&f.body, environment) {
                             match e {
-                                RloxError::Return(v) => return Ok(v),
+                                RloxError::Return(v) => {
+                                    if f.initializer {
+                                        let mut token = Token::default();
+                                        token.lexeme = Rc::from("this".to_owned());
+                                        return self.environment.get(&token);
+                                    } else {
+                                        return Ok(v);
+                                    }
+                                }
                                 _ => return Err(e),
                             }
                         } else {
-                            return Ok(Object::Nil);
+                            if f.initializer {
+                                let mut token = Token::default();
+                                token.lexeme = Rc::from("this".to_owned());
+                                return self.environment.get(&token);
+                            } else {
+                                return Ok(Object::Nil);
+                            }
                         }
                     }
-                    LoxCallable::ClassDefinition(class) => Ok(Object::Callable(
-                        LoxCallable::ClassInstance(LoxInstance::new(class.clone())),
-                    )),
+                    LoxCallable::ClassDefinition(class) => {
+                        let instance = LoxInstance::new(class);
+                        if let Ok(Object::Callable(LoxCallable::UserDefined(f))) =
+                            instance.get("init")
+                        {
+                            let init_expr = Box::new(Expr::Call(
+                                Box::new(Expr::Literal(Object::Callable(
+                                    LoxCallable::UserDefined(f),
+                                ))),
+                                Token::default(),
+                                args.clone(),
+                            ));
+
+                            self.evaluate(&init_expr)?;
+                        }
+
+                        Ok(Object::Callable(LoxCallable::ClassInstance(instance)))
+                    }
                     _ => unimplemented!(),
                 }
             }
             Expr::Set(object, name, value) => {
                 // TODO Yikes. Maybe it's a good idea to store the instance name within the
                 // instance?
-                let instance_name = if let Expr::Variable(t) = *object.clone() {
-                    t.lexeme
-                } else {
-                    unreachable!();
+                let instance_name = match *object.clone() {
+                    Expr::Variable(t) => t.lexeme,
+                    Expr::This(t) => t.lexeme,
+                    _ => unreachable!(),
                 };
 
                 if let Object::Callable(LoxCallable::ClassInstance(mut instance)) =
@@ -415,6 +481,7 @@ impl Interpreter {
                     Err(RloxError::PropertyAccessOnNonInstance)
                 }
             }
+            Expr::This(keyword) => Ok(self.look_up_variable(keyword, expr)?),
         }
     }
 
