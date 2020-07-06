@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use super::{Expr, LoxCallable, Object, Result, RloxError, Stmt, Token, TokenType};
+use super::{
+    Expr, LoxCallable, LoxClass, LoxInstance, Object, Result, RloxError, Stmt, Token, TokenType,
+};
 
 /// Checks if an Rc is unique
 ///
@@ -56,8 +58,8 @@ impl Environment {
         }
     }
 
-    fn assign(&mut self, name: &Token, value: Object) -> Result<Object> {
-        match self.values.entry(Rc::clone(&name.lexeme)) {
+    fn assign(&mut self, name: &Rc<str>, value: Object) -> Result<Object> {
+        match self.values.entry(Rc::clone(&name)) {
             Entry::Vacant(_) => {
                 if let Some(e) = &mut self.enclosing {
                     fail_if_not_unique(&e)?;
@@ -148,6 +150,26 @@ impl Interpreter {
                     self.execute(e)?;
                 }
             }
+            Stmt::Class(name, methods) => {
+                let mut klass = LoxClass::new(&name.lexeme);
+
+                // Methods are of type Stmt
+                //   The underlying variant *should* be Stmt::Function
+                //     - TODO can this be an invariant?
+                for method in methods {
+                    if let Stmt::Function(LoxCallable::UserDefined(f)) = method {
+                        klass.add_method(f.clone());
+                    } else {
+                        unreachable!();
+                    }
+                }
+
+                let klass = Object::Callable(LoxCallable::ClassDefinition(klass));
+                fail_if_not_unique(&self.environment)?;
+                Rc::get_mut(&mut self.environment)
+                    .map(|e| e.define(&name.lexeme, klass))
+                    .ok_or_else(|| unreachable!())?;
+            }
             Stmt::Expression(expr) => {
                 self.evaluate(&expr)?;
             }
@@ -222,7 +244,7 @@ impl Interpreter {
                 let value = self.evaluate(expr)?;
                 Rc::get_mut(&mut self.environment)
                     .ok_or_else(|| unreachable!())
-                    .and_then(|e| e.assign(&token, value))
+                    .and_then(|e| e.assign(&token.lexeme, value))
             }
             Expr::Binary(left_expr, token, right_expr) => {
                 let left = self.evaluate(left_expr)?;
@@ -305,6 +327,13 @@ impl Interpreter {
 
                 return self.evaluate(right);
             }
+            Expr::Get(object, name) => {
+                if let Object::Callable(LoxCallable::ClassInstance(c)) = self.evaluate(object)? {
+                    c.get(&name.lexeme)
+                } else {
+                    Err(RloxError::PropertyAccessOnNonInstance)
+                }
+            }
             Expr::Grouping(group) => self.evaluate(group),
             Expr::Variable(token) => Ok(self.look_up_variable(&token, expr)?),
             Expr::Call(callee, _, args) => {
@@ -347,6 +376,43 @@ impl Interpreter {
                             return Ok(Object::Nil);
                         }
                     }
+                    LoxCallable::ClassDefinition(class) => Ok(Object::Callable(
+                        LoxCallable::ClassInstance(LoxInstance::new(class.clone())),
+                    )),
+                    _ => unimplemented!(),
+                }
+            }
+            Expr::Set(object, name, value) => {
+                // TODO Yikes. Maybe it's a good idea to store the instance name within the
+                // instance?
+                let instance_name = if let Expr::Variable(t) = *object.clone() {
+                    t.lexeme
+                } else {
+                    unreachable!();
+                };
+
+                if let Object::Callable(LoxCallable::ClassInstance(mut instance)) =
+                    self.evaluate(object)?
+                {
+                    let value = self.evaluate(value)?;
+                    instance.set(&name.lexeme, value.clone());
+
+                    // Note: jlox relies on implicit mutation of the environment.  rlox's
+                    // environment hands out copies of objects rather than references.  We need to
+                    // manually update the environment after setting a field on a variable.
+                    Rc::get_mut(&mut self.environment)
+                        .and_then(|e| {
+                            e.assign(
+                                &instance_name,
+                                Object::Callable(LoxCallable::ClassInstance(instance.clone())),
+                            )
+                            .ok()
+                        })
+                        .ok_or_else(|| unreachable!())?;
+
+                    Ok(value)
+                } else {
+                    Err(RloxError::PropertyAccessOnNonInstance)
                 }
             }
         }

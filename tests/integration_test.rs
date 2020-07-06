@@ -73,6 +73,10 @@ verify_rlox_program_ok! {"assignment", "associativity"}
 verify_rlox_program_ok! {"assignment", "global"}
 verify_rlox_program_ok! {"assignment", "syntax"}
 
+// Field (ok)
+verify_rlox_program_ok! {"field", "many"}
+verify_rlox_program_ok! {"field", "on_instance"}
+
 // Function (ok)
 verify_rlox_program_ok! {"function", "empty_body"}
 verify_rlox_program_ok! {"function", "local_recursion"}

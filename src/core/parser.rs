@@ -54,6 +54,10 @@ impl Parser {
     }
 
     fn declaration(&self) -> Result<Stmt> {
+        if self.match_tokens(vec![TokenType::Class]) {
+            return self.class_declaration();
+        }
+
         if self.match_tokens(vec![TokenType::Fun]) {
             return self.function();
         }
@@ -69,6 +73,20 @@ impl Parser {
             self.synchronize();
             e
         })
+    }
+
+    fn class_declaration(&self) -> Result<Stmt> {
+        let name = self.consume(TokenType::Identifier)?;
+        self.consume(TokenType::LeftBrace)?;
+
+        let mut methods = Vec::new();
+        while !self.check(&TokenType::RightBrace) && !self.is_at_end() {
+            methods.push(self.function()?);
+        }
+
+        self.consume(TokenType::RightBrace)?;
+
+        Ok(Stmt::Class(name, methods))
     }
 
     fn function(&self) -> Result<Stmt> {
@@ -277,11 +295,11 @@ impl Parser {
         if self.match_tokens(vec![TokenType::Equal]) {
             let value = self.assignment()?;
 
-            if let Expr::Variable(token) = *expr {
-                return Ok(Box::new(Expr::Assign(token, value)));
-            } else {
-                return Err(RloxError::InvalidAssignment);
-            }
+            match *expr {
+                Expr::Variable(token) => return Ok(Box::new(Expr::Assign(token, value))),
+                Expr::Get(object, name) => return Ok(Box::new(Expr::Set(object, name, value))),
+                _ => return Err(RloxError::InvalidAssignment),
+            };
         }
 
         Ok(expr)
@@ -384,6 +402,9 @@ impl Parser {
         loop {
             if self.match_tokens(vec![TokenType::LeftParen]) {
                 expr = self.finish_call(expr)?;
+            } else if self.match_tokens(vec![TokenType::Dot]) {
+                let name = self.consume(TokenType::Identifier)?;
+                expr = Box::new(Expr::Get(expr, name));
             } else {
                 break;
             }

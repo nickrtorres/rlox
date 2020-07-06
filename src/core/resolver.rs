@@ -6,13 +6,15 @@ use std::rc::Rc;
 type Stack<T> = Vec<T>;
 
 #[derive(Debug, Clone, Copy)]
-struct Function;
-type FunctionType = Option<Function>;
+enum FunctionType {
+    Function,
+    Method,
+}
 
 pub struct Resolver {
     scopes: Stack<HashMap<Rc<str>, bool>>,
     locals: HashMap<Expr, usize>,
-    current_function: FunctionType,
+    current_function: Option<FunctionType>,
 }
 
 impl Resolver {
@@ -42,6 +44,17 @@ impl Resolver {
                 self.begin_scope();
                 self.resolve(statements)?;
                 self.end_scope();
+            }
+            Stmt::Class(name, methods) => {
+                self.declare(name)?;
+                for method in methods {
+                    if let Stmt::Function(LoxCallable::UserDefined(f)) = method {
+                        self.resolve_function(f, Some(FunctionType::Method))?;
+                    } else {
+                        unreachable!();
+                    }
+                }
+                self.define(name);
             }
             Stmt::If(expr, then_branch, else_branch) => {
                 self.resolve_expression(expr)?;
@@ -82,7 +95,7 @@ impl Resolver {
                 self.declare(&func.name)?;
                 self.define(&func.name);
 
-                self.resolve_function(func, Some(Function {}))?;
+                self.resolve_function(func, Some(FunctionType::Function))?;
             }
             _ => {}
         }
@@ -123,6 +136,11 @@ impl Resolver {
                     self.resolve_expression(arg)?;
                 }
             }
+            Expr::Get(object, _) => self.resolve_expression(object)?,
+            Expr::Set(object, _, value) => {
+                self.resolve_expression(object)?;
+                self.resolve_expression(value)?;
+            }
         }
 
         Ok(())
@@ -148,7 +166,7 @@ impl Resolver {
     fn resolve_function(
         &mut self,
         function: &FunctionStmt,
-        function_type: FunctionType,
+        function_type: Option<FunctionType>,
     ) -> Result<()> {
         let enclosing = self.current_function;
         self.current_function = function_type;

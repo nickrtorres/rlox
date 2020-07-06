@@ -52,6 +52,8 @@ pub enum RloxError {
     Return(Object),
     VariableRedefinition,
     ReturnInNonFunction,
+    PropertyAccessOnNonInstance,
+    UndefinedProperty,
 }
 
 impl fmt::Display for RloxError {
@@ -279,6 +281,33 @@ impl Hash for Object {
 pub enum LoxCallable {
     Clock,
     UserDefined(FunctionStmt),
+    ClassDefinition(LoxClass),
+    ClassInstance(LoxInstance),
+}
+
+#[derive(Eq, Hash, PartialEq, Debug, Clone)]
+pub struct LoxClass {
+    name: Rc<str>,
+    methods: Vec<FunctionStmt>,
+}
+
+impl LoxClass {
+    fn new(name: &Rc<str>) -> Self {
+        LoxClass {
+            name: Rc::clone(name),
+            methods: Vec::new(),
+        }
+    }
+
+    fn add_method(&mut self, method: FunctionStmt) {
+        self.methods.push(method)
+    }
+}
+
+impl fmt::Display for LoxClass {
+    fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
+        write!(f, "{}", self.name)
+    }
 }
 
 impl LoxCallable {
@@ -286,7 +315,68 @@ impl LoxCallable {
         match self {
             Self::Clock => 0,
             Self::UserDefined(f) => f.parameters.len(),
+            Self::ClassDefinition(_) => 0,
+            Self::ClassInstance(_) => 0,
         }
+    }
+}
+
+#[derive(Eq, Hash, PartialEq, Debug, Clone)]
+struct Property {
+    name: String,
+    object: Object,
+}
+
+#[derive(Eq, Hash, PartialEq, Debug, Clone)]
+pub struct LoxInstance {
+    // This is a copy of the name at the time of creation.
+    name: Rc<str>,
+    // This differs from jlox since std::collections::HashMap is not Hash.
+    // It might be slow.
+    fields: Vec<Property>,
+    methods: Vec<FunctionStmt>,
+}
+
+impl LoxInstance {
+    fn new(class: LoxClass) -> Self {
+        LoxInstance {
+            name: Rc::clone(&class.name),
+            fields: Vec::new(),
+            methods: class.methods,
+        }
+    }
+
+    fn get(&self, name: &str) -> Result<Object> {
+        if let Some(property) = self.fields.iter().find(|e| e.name == name) {
+            return Ok(property.object.clone());
+        }
+
+        // TODO: find a better way to compare a Rc<str> to &str
+        if let Some(method) = self
+            .methods
+            .iter()
+            .find(|e| e.name.lexeme == Rc::from(name.to_owned()))
+        {
+            return Ok(Object::Callable(LoxCallable::UserDefined(method.clone())));
+        }
+
+        Err(RloxError::UndefinedProperty)
+    }
+
+    fn set(&mut self, name: &Rc<str>, value: Object) {
+        let property = Property {
+            // TODO Hmm?
+            name: name.to_string(),
+            object: value,
+        };
+
+        self.fields.push(property);
+    }
+}
+
+impl fmt::Display for LoxInstance {
+    fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
+        write!(f, "{} instance", self.name)
     }
 }
 
@@ -300,6 +390,8 @@ impl fmt::Display for Object {
             Object::Time(t) => write!(f, "{}", t),
             Object::Callable(c) => match c {
                 LoxCallable::Clock => write!(f, "<native fn>"),
+                LoxCallable::ClassDefinition(n) => write!(f, "{}", n),
+                LoxCallable::ClassInstance(n) => write!(f, "{}", n),
                 _ => unimplemented!(),
             },
         }
@@ -315,9 +407,11 @@ pub enum Expr {
     Assign(Token, Box<Expr>),
     Binary(Box<Expr>, Token, Box<Expr>),
     Call(Box<Expr>, Token, Vec<Expr>),
+    Get(Box<Expr>, Token),
     Grouping(Box<Expr>),
     Literal(Object),
     Logical(Box<Expr>, Token, Box<Expr>),
+    Set(Box<Expr>, Token, Box<Expr>),
     Unary(Token, Box<Expr>),
     Variable(Token),
 }
@@ -333,6 +427,8 @@ pub struct FunctionStmt {
 #[derive(Eq, Hash, Debug, PartialEq, Clone)]
 pub enum Stmt {
     Block(Vec<Stmt>),
+    // TODO maybe this should be Vec of LoxCallable?
+    Class(Token, Vec<Stmt>),
     If(Expr, Box<Stmt>, Option<Box<Stmt>>),
     Function(LoxCallable),
     Expression(Expr),
@@ -340,4 +436,74 @@ pub enum Stmt {
     Return(Token, Option<Expr>),
     Var(Token, Option<Expr>),
     While(Expr, Box<Stmt>),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    mod lox_instance {
+        use super::*;
+
+        #[test]
+        fn it_can_lookup_methods() {
+            let method = FunctionStmt {
+                name: Token::new(TokenType::Identifier, "bar".to_owned(), 1),
+                parameters: Vec::new(),
+                body: Vec::new(),
+            };
+
+            let mut class = LoxClass::new(&Rc::from("foo".to_owned()));
+            class.add_method(method.clone());
+
+            let instance = LoxInstance::new(class);
+
+            assert_eq!(
+                Ok(Object::Callable(LoxCallable::UserDefined(method))),
+                instance.get("bar")
+            );
+        }
+
+        #[test]
+        fn it_fails_for_nonexistent_methods() {
+            let class = LoxClass::new(&Rc::from("foo".to_owned()));
+
+            let instance = LoxInstance::new(class);
+
+            assert_eq!(Err(RloxError::UndefinedProperty), instance.get("bar"));
+        }
+
+        #[test]
+        fn it_can_lookup_properties() {
+            let class = LoxClass::new(&Rc::from("foo".to_owned()));
+
+            let mut instance = LoxInstance::new(class);
+            instance.set(
+                &Rc::from("foo".to_owned()),
+                Object::String("bar".to_owned()),
+            );
+            instance.set(
+                &Rc::from("bar".to_owned()),
+                Object::String("baz".to_owned()),
+            );
+            instance.set(
+                &Rc::from("baz".to_owned()),
+                Object::String("qux".to_owned()),
+            );
+
+            assert_eq!(Ok(Object::String("bar".to_owned())), instance.get("foo"));
+            assert_eq!(Ok(Object::String("baz".to_owned())), instance.get("bar"));
+            assert_eq!(Ok(Object::String("qux".to_owned())), instance.get("baz"));
+        }
+
+        #[test]
+        fn it_fails_for_nonexistent_properties() {
+            let class = LoxClass::new(&Rc::from("foo".to_owned()));
+
+            let instance = LoxInstance::new(class);
+
+            assert_eq!(Err(RloxError::UndefinedProperty), instance.get("foo"));
+            assert_eq!(Err(RloxError::UndefinedProperty), instance.get("bar"));
+            assert_eq!(Err(RloxError::UndefinedProperty), instance.get("baz"));
+        }
+    }
 }
