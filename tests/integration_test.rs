@@ -85,6 +85,10 @@ verify_rlox_program_ok! {"function", "parameters"}
 verify_rlox_program_ok! {"function", "print"}
 verify_rlox_program_ok! {"function", "recursion"}
 
+// Method (ok)
+verify_rlox_program_ok! {"method", "arity"}
+verify_rlox_program_ok! {"method", "empty_block"}
+
 // Variable (ok)
 verify_rlox_program_ok! {"variable", "early_bound"}
 verify_rlox_program_ok! {"variable", "in_middle_of_block"}
