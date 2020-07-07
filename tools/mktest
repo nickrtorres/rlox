@@ -1,0 +1,14 @@
+#!/bin/sh -e
+#
+# Makes a new test directory for lox and output (stdout / stderr)
+
+fatal()
+{
+  echo "FATAL: $*"
+  exit 1
+}
+
+for dir in $*; do
+  mkdir tests/lox/"$dir" || fatal "cannot create lox directory: ( $dir )"
+  mkdir tests/output/"$dir" || fatal "cannot create output directory: ( $dir )"
+done
