@@ -66,10 +66,8 @@ impl Environment {
             Entry::Vacant(_) => {
                 if let Some(e) = &mut self.enclosing {
                     fail_if_not_unique(&e)?;
-                    // TODO: this ok_or should go away. The previous line validates that the `Rc`
-                    // we're inspecting is unique.
                     return Rc::get_mut(e)
-                        .ok_or(RloxError::NonUniqueRc)
+                        .ok_or_else(|| unreachable!())
                         .and_then(|nested| nested.assign(name, value));
                 }
 

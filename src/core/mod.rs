@@ -392,7 +392,6 @@ impl LoxInstance {
 
     fn set(&mut self, name: &str, value: Object) {
         let property = Property {
-            // TODO Hmm?
             name: name.to_owned(),
             object: value,
         };
