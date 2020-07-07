@@ -57,6 +57,8 @@ pub enum RloxError {
     UndefinedProperty,
     ThisOutsideOfClass,
     ReturnValueFromConstructor,
+    // expected, actual
+    ArgumentMismatch(usize, usize),
 }
 
 impl fmt::Display for RloxError {
@@ -67,6 +69,18 @@ impl fmt::Display for RloxError {
             }
             Self::MissingSemicolon(line) => write!(f, "error: {}: missing semicolon", line),
             Self::UnclosedParenthesis(line) => write!(f, "error: {}: unclosed parenthesis", line),
+            Self::ThisOutsideOfClass => {
+                write!(f, "Error at 'this': Cannot use 'this' outside of a class.")
+            }
+            Self::ReturnValueFromConstructor => write!(
+                f,
+                "Error at 'return': Cannot return a value from an initializer."
+            ),
+            Self::ArgumentMismatch(expected, actual) => write!(
+                f,
+                "runtime error: Expected {} arguments but got {}.",
+                expected, actual
+            ),
             // TODO: actually handle other errors
             _ => write!(f, "{:?}", self),
         }

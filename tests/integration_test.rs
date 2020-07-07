@@ -75,6 +75,7 @@ verify_rlox_program_ok! {"assignment", "syntax"}
 
 // Constructor (ok)
 verify_rlox_program_ok! {"constructor", "arguments"}
+verify_rlox_program_ok! {"constructor", "call_init_early_return"}
 verify_rlox_program_ok! {"constructor", "call_init_explicitly"}
 verify_rlox_program_ok! {"constructor", "default"}
 verify_rlox_program_ok! {"constructor", "early_return"}
@@ -82,6 +83,9 @@ verify_rlox_program_ok! {"constructor", "init_not_method"}
 verify_rlox_program_ok! {"constructor", "return_in_nested_function"}
 
 // Constructor (err)
+verify_rlox_program_err! {"constructor", "default_arguments"}
+verify_rlox_program_err! {"constructor", "extra_arguments"}
+verify_rlox_program_err! {"constructor", "missing_arguments"}
 verify_rlox_program_err! {"constructor", "return_value"}
 
 // Field (ok)

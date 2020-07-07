@@ -369,8 +369,10 @@ impl Interpreter {
                 }
 
                 if arguments.len() != function.arity() {
-                    // TODO: figure out what to do here
-                    unimplemented!();
+                    return Err(RloxError::ArgumentMismatch(
+                        function.arity(),
+                        arguments.len(),
+                    ));
                 }
 
                 match function {
