@@ -141,8 +141,7 @@ impl Resolver {
             }
             Expr::Variable(token) => {
                 if !self.scopes.is_empty() {
-                    if let Some(false) = self.scopes.last().map(|m| m.get(&token.lexeme)).flatten()
-                    {
+                    if let Some(false) = self.scopes.last().and_then(|m| m.get(&token.lexeme)) {
                         // TODO 11.3.3 "Cannot read local variable in its own initializer."
                         // I'm not sure if this is a possible state or not
                         unimplemented!()

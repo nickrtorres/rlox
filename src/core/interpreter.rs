@@ -42,7 +42,7 @@ impl Environment {
 
     pub fn define(&mut self, name: &Rc<str>, value: Object) {
         self.values.insert(Rc::clone(name), value);
-        assert!(self.values.len() > 0);
+        assert!(!self.values.is_empty());
     }
 
     fn get(&self, name: &Token) -> Result<Object> {
@@ -460,7 +460,7 @@ impl Interpreter {
                     self.evaluate(object)?
                 {
                     let value = self.evaluate(value)?;
-                    instance.set(&name.lexeme, value.clone());
+                    instance.set(&name.lexeme, value);
 
                     // Note: jlox relies on implicit mutation of the environment.  rlox's
                     // environment hands out copies of objects rather than references.  We need to
@@ -475,7 +475,11 @@ impl Interpreter {
                         })
                         .ok_or_else(|| unreachable!())?;
 
-                    Ok(value)
+                    // We just added this value. It must be `Ok`
+                    match instance.get(&name.lexeme) {
+                        Ok(v) => Ok(v),
+                        Err(e) => unreachable!("{:?}", e),
+                    }
                 } else {
                     Err(RloxError::PropertyAccessOnNonInstance)
                 }

@@ -535,7 +535,7 @@ impl Parser {
         self.tokens
             .get(self.cursor.get() - 1)
             .ok_or(RloxError::NoPrevious)
-            .and_then(|t| Ok(t.clone()))
+            .map(|t| t.clone())
     }
 
     fn advance(&self) -> Option<Token> {
