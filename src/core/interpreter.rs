@@ -451,9 +451,8 @@ impl Interpreter {
             Expr::Set(object, name, value) => {
                 // TODO Yikes. Maybe it's a good idea to store the instance name within the
                 // instance?
-                let instance_name = match *object.clone() {
-                    Expr::Variable(t) => t.lexeme,
-                    Expr::This(t) => t.lexeme,
+                let instance_name = match &**object {
+                    Expr::Variable(t) | Expr::This(t) => &t.lexeme,
                     _ => unreachable!(),
                 };
 
