@@ -125,6 +125,9 @@ pub enum TokenType {
     While,
 
     Eof,
+
+    // Used when a temporary token is needed.
+    Default,
 }
 
 impl Eq for TokenType {}
@@ -185,6 +188,7 @@ impl fmt::Display for TokenType {
             Self::Var => "var",
             Self::While => "while",
             Self::Eof => "eof",
+            Self::Default => "default token; this is not a usable token",
             // we already handled number above
             _ => unreachable!(),
         };
@@ -240,7 +244,7 @@ impl Token {
 impl Default for Token {
     fn default() -> Self {
         Token {
-            token_type: TokenType::Eof,
+            token_type: TokenType::Default,
             lexeme: String::new(),
             line: 0,
         }
