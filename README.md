@@ -23,12 +23,4 @@ incomplete list is provided below.
 - [x] Modules
 
 
-## Building
-`rlox` requires nightly for `#![feature(bool_to_option)]`.
-```
-$ rustup default nightly
-$ rustup update
-$ cargo test
-```
-
 [Crafting Interpreters]: https://craftinginterpreters.com/contents.html

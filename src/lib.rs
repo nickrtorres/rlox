@@ -10,7 +10,6 @@
 //!   variants of each type (`jlox` uses the visitor pattern)
 //! - `rlox` defines an `interpret` associated function directly on the `Expr`
 //!   type (`jlox` uses a new `Interpreter` object with an `interpret` method
-#![feature(bool_to_option)]
 #![feature(entry_insert)]
 #![warn(clippy::pedantic)]
 

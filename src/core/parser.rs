@@ -54,15 +54,15 @@ impl Parser {
     }
 
     fn declaration(&self) -> Result<Stmt> {
-        if self.match_tokens(vec![TokenType::Class]) {
+        if self.match_token(TokenType::Class) {
             return self.class_declaration();
         }
 
-        if self.match_tokens(vec![TokenType::Fun]) {
+        if self.match_token(TokenType::Fun) {
             return self.function();
         }
 
-        if self.match_tokens(vec![TokenType::Var]) {
+        if self.match_token(TokenType::Var) {
             return self.var_declaration().map_err(|e| {
                 self.synchronize();
                 e
@@ -80,7 +80,7 @@ impl Parser {
         self.consume(TokenType::LeftBrace)?;
 
         let mut methods = Vec::new();
-        while !self.check(&TokenType::RightBrace) && !self.is_at_end() {
+        while !self.check(TokenType::RightBrace) && !self.is_at_end() {
             methods.push(self.function()?);
         }
 
@@ -94,8 +94,7 @@ impl Parser {
         self.consume(TokenType::LeftParen)?;
         let mut parameters = Vec::new();
 
-        // TODO why does `check` take a ref?
-        if !self.check(&TokenType::RightParen) {
+        if !self.check(TokenType::RightParen) {
             loop {
                 if parameters.len() >= 255 {
                     // TODO define actual TooManyArgs err
@@ -104,7 +103,7 @@ impl Parser {
 
                 parameters.push(self.consume(TokenType::Identifier)?);
 
-                if !self.match_tokens(vec![TokenType::Comma]) {
+                if !self.match_token(TokenType::Comma) {
                     break;
                 }
             }
@@ -126,7 +125,7 @@ impl Parser {
     fn var_declaration(&self) -> Result<Stmt> {
         let name = self.consume(TokenType::Identifier)?;
 
-        let initializer = if self.match_tokens(vec![TokenType::Equal]) {
+        let initializer = if self.match_token(TokenType::Equal) {
             Some(*(self.expression()?))
         } else {
             None
@@ -137,17 +136,17 @@ impl Parser {
     }
 
     fn statement(&self) -> Result<Stmt> {
-        if self.match_tokens(vec![TokenType::For]) {
+        if self.match_token(TokenType::For) {
             return self.for_statement();
-        } else if self.match_tokens(vec![TokenType::If]) {
+        } else if self.match_token(TokenType::If) {
             return self.if_statement();
-        } else if self.match_tokens(vec![TokenType::Print]) {
+        } else if self.match_token(TokenType::Print) {
             self.print_statement()
-        } else if self.match_tokens(vec![TokenType::Return]) {
+        } else if self.match_token(TokenType::Return) {
             self.return_statement()
-        } else if self.match_tokens(vec![TokenType::While]) {
+        } else if self.match_token(TokenType::While) {
             self.while_statement()
-        } else if self.match_tokens(vec![TokenType::LeftBrace]) {
+        } else if self.match_token(TokenType::LeftBrace) {
             Ok(Stmt::Block(self.block()?))
         } else {
             self.expression_statement()
@@ -157,7 +156,7 @@ impl Parser {
     fn return_statement(&self) -> Result<Stmt> {
         let keyword = self.previous()?;
 
-        let value = if !self.check(&TokenType::Semicolon) {
+        let value = if !self.check(TokenType::Semicolon) {
             Some(*self.expression()?)
         } else {
             None
@@ -170,15 +169,15 @@ impl Parser {
     fn for_statement(&self) -> Result<Stmt> {
         self.consume(TokenType::LeftParen)?;
 
-        let initializer = if self.match_tokens(vec![TokenType::Semicolon]) {
+        let initializer = if self.match_token(TokenType::Semicolon) {
             None
-        } else if self.match_tokens(vec![TokenType::Var]) {
+        } else if self.match_token(TokenType::Var) {
             Some(self.var_declaration()?)
         } else {
             Some(self.expression_statement()?)
         };
 
-        let condition = if !self.check(&TokenType::Semicolon) {
+        let condition = if !self.check(TokenType::Semicolon) {
             *self.expression()?
         } else {
             Expr::Literal(Object::Bool(true))
@@ -186,7 +185,7 @@ impl Parser {
 
         self.consume(TokenType::Semicolon)?;
 
-        let increment = if !self.check(&TokenType::RightParen) {
+        let increment = if !self.check(TokenType::RightParen) {
             Some(*self.expression()?)
         } else {
             None
@@ -223,7 +222,7 @@ impl Parser {
         self.consume(TokenType::RightParen)?;
 
         let then_branch = self.statement()?;
-        let else_branch = if self.match_tokens(vec![TokenType::Else]) {
+        let else_branch = if self.match_token(TokenType::Else) {
             Some(Box::new(self.statement()?))
         } else {
             None
@@ -235,7 +234,7 @@ impl Parser {
     fn block(&self) -> Result<Vec<Stmt>> {
         let mut statements = Vec::new();
 
-        while !self.check(&TokenType::RightBrace) && !self.is_at_end() {
+        while !self.check(TokenType::RightBrace) && !self.is_at_end() {
             statements.push(self.declaration()?);
         }
 
@@ -294,7 +293,7 @@ impl Parser {
     fn assignment(&self) -> Result<Box<Expr>> {
         let expr = self.or()?;
 
-        if self.match_tokens(vec![TokenType::Equal]) {
+        if self.match_token(TokenType::Equal) {
             let value = self.assignment()?;
 
             match *expr {
@@ -310,7 +309,7 @@ impl Parser {
     fn or(&self) -> Result<Box<Expr>> {
         let mut expr = self.and()?;
 
-        while self.match_tokens(vec![TokenType::Or]) {
+        while self.match_token(TokenType::Or) {
             let operator = self.previous()?;
             let right = self.and()?;
             expr = Box::new(Expr::Logical(expr, operator, right));
@@ -322,7 +321,7 @@ impl Parser {
     fn and(&self) -> Result<Box<Expr>> {
         let mut expr = self.equality()?;
 
-        while self.match_tokens(vec![TokenType::And]) {
+        while self.match_token(TokenType::And) {
             let operator = self.previous()?;
             let right = self.and()?;
             expr = Box::new(Expr::Logical(expr, operator, right));
@@ -402,9 +401,9 @@ impl Parser {
         let mut expr = self.primary()?;
 
         loop {
-            if self.match_tokens(vec![TokenType::LeftParen]) {
+            if self.match_token(TokenType::LeftParen) {
                 expr = self.finish_call(expr)?;
-            } else if self.match_tokens(vec![TokenType::Dot]) {
+            } else if self.match_token(TokenType::Dot) {
                 let name = self.consume(TokenType::Identifier)?;
                 expr = Box::new(Expr::Get(expr, name));
             } else {
@@ -418,7 +417,7 @@ impl Parser {
     fn finish_call(&self, callee: Box<Expr>) -> Result<Box<Expr>> {
         let mut arguments = Vec::new();
 
-        if !self.check(&TokenType::RightParen) {
+        if !self.check(TokenType::RightParen) {
             loop {
                 if arguments.len() >= 255 {
                     // TODO: handle this case
@@ -427,7 +426,7 @@ impl Parser {
 
                 arguments.push(*self.expression()?);
 
-                if !self.match_tokens(vec![TokenType::Comma]) {
+                if !self.match_token(TokenType::Comma) {
                     break;
                 }
             }
@@ -438,13 +437,13 @@ impl Parser {
     }
 
     fn primary(&self) -> Result<Box<Expr>> {
-        if self.match_tokens(vec![TokenType::False]) {
+        if self.match_token(TokenType::False) {
             return Ok(Box::new(Expr::Literal(Object::Bool(false))));
         }
-        if self.match_tokens(vec![TokenType::True]) {
+        if self.match_token(TokenType::True) {
             return Ok(Box::new(Expr::Literal(Object::Bool(true))));
         }
-        if self.match_tokens(vec![TokenType::Nil]) {
+        if self.match_token(TokenType::Nil) {
             return Ok(Box::new(Expr::Literal(Object::Nil)));
         }
 
@@ -463,15 +462,15 @@ impl Parser {
             return rv;
         }
 
-        if self.match_tokens(vec![TokenType::This]) {
+        if self.match_token(TokenType::This) {
             return Ok(Box::new(Expr::This(self.previous()?)));
         }
 
-        if self.match_tokens(vec![TokenType::Identifier]) {
+        if self.match_token(TokenType::Identifier) {
             return Ok(Box::new(Expr::Variable(self.previous()?)));
         }
 
-        if self.match_tokens(vec![TokenType::LeftParen]) {
+        if self.match_token(TokenType::LeftParen) {
             let expr = self.expression()?;
             self.consume(TokenType::RightParen)?;
             return Ok(Box::new(Expr::Grouping(expr)));
@@ -482,7 +481,7 @@ impl Parser {
     }
 
     fn consume(&self, token_type: TokenType) -> Result<Token> {
-        if !self.check(&token_type) {
+        if !self.check(token_type.clone()) {
             // We already consumed the problematic token.  We need to step back
             // for a second to grab the bad line number. It should be *impossible*
             // for the token we just consumed to not be there.
@@ -499,19 +498,19 @@ impl Parser {
         self.advance().ok_or_else(|| unreachable!())
     }
 
-    // TODO: this should not be a vec. it should be a slice or an iterator
-    //
-    // maybe this should just be an if statement
-    fn match_tokens(&self, token_types: Vec<TokenType>) -> bool {
-        token_types
-            .into_iter()
-            .any(|token_type| self.check(&token_type))
-            .then_some(())
-            .and_then(|_| self.advance())
-            .is_some()
+    fn match_token(&self, token_type: TokenType) -> bool {
+        if !self.check(token_type) {
+            return false;
+        }
+
+        self.advance().is_some()
     }
 
-    fn check(&self, token_type: &TokenType) -> bool {
+    fn match_tokens(&self, token_types: Vec<TokenType>) -> bool {
+        token_types.into_iter().any(|t| self.match_token(t))
+    }
+
+    fn check(&self, token_type: TokenType) -> bool {
         if self.is_at_end() {
             return false;
         }
