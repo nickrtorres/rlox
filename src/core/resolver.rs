@@ -1,7 +1,6 @@
-use super::{Expr, FunctionStmt, LoxCallable, Result, RloxError, Stmt, Token};
+use super::{Expr, FunctionStmt, LoxCallable, Result, RloxError, Stmt, Token, INIT_METHOD};
 
 use std::collections::HashMap;
-use std::rc::Rc;
 
 type Stack<T> = Vec<T>;
 
@@ -16,7 +15,7 @@ enum FunctionType {
 struct ClassType;
 
 pub struct Resolver {
-    scopes: Stack<HashMap<Rc<str>, bool>>,
+    scopes: Stack<HashMap<String, bool>>,
     locals: HashMap<Expr, usize>,
     current_function: Option<FunctionType>,
     current_class: Option<ClassType>,
@@ -60,10 +59,10 @@ impl Resolver {
                 self.begin_scope();
                 self.scopes
                     .last_mut()
-                    .map(|m| m.insert(Rc::from("this".to_owned()), true));
+                    .map(|m| m.insert("this".to_owned(), true));
                 for method in methods {
                     if let Stmt::Function(LoxCallable::UserDefined(f)) = method {
-                        if f.name.lexeme == Rc::from("init".to_owned()) {
+                        if f.name.lexeme == INIT_METHOD.to_owned() {
                             self.resolve_function(f, Some(FunctionType::Initializer))?;
                         } else {
                             self.resolve_function(f, Some(FunctionType::Method))?;
@@ -232,7 +231,7 @@ impl Resolver {
 
         self.scopes
             .last_mut()
-            .map(|m| m.insert(Rc::clone(&name.lexeme), false));
+            .map(|m| m.insert(name.lexeme.clone(), false));
 
         Ok(())
     }
@@ -240,6 +239,6 @@ impl Resolver {
     fn define(&mut self, name: &Token) {
         self.scopes
             .last_mut()
-            .map(|m| m.entry(Rc::clone(&name.lexeme)).insert(true));
+            .map(|m| m.entry(name.lexeme.clone()).insert(true));
     }
 }

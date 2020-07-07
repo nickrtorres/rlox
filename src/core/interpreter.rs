@@ -5,6 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::{
     Expr, LoxCallable, LoxClass, LoxInstance, Object, Result, RloxError, Stmt, Token, TokenType,
+    INIT_METHOD,
 };
 
 /// Checks if an Rc is unique
@@ -21,7 +22,7 @@ fn fail_if_not_unique<T>(ptr: &Rc<T>) -> Result<()> {
 
 #[derive(Debug, Clone)]
 pub struct Environment {
-    values: HashMap<Rc<str>, Object>,
+    values: HashMap<String, Object>,
     enclosing: Option<Rc<Environment>>,
 }
 
@@ -40,8 +41,8 @@ impl Environment {
         }
     }
 
-    pub fn define(&mut self, name: &Rc<str>, value: Object) {
-        self.values.insert(Rc::clone(name), value);
+    pub fn define(&mut self, name: String, value: Object) {
+        self.values.insert(name, value);
         assert!(!self.values.is_empty());
     }
 
@@ -58,8 +59,8 @@ impl Environment {
         }
     }
 
-    fn assign(&mut self, name: &Rc<str>, value: Object) -> Result<Object> {
-        match self.values.entry(Rc::clone(&name)) {
+    fn assign(&mut self, name: &str, value: Object) -> Result<Object> {
+        match self.values.entry(name.to_owned()) {
             Entry::Vacant(_) => {
                 if let Some(e) = &mut self.enclosing {
                     fail_if_not_unique(&e)?;
@@ -122,7 +123,7 @@ impl Interpreter {
     pub fn new() -> Self {
         let clock_fn = LoxCallable::Clock;
         let mut environment = Environment::new();
-        environment.define(&Rc::from("clock".to_owned()), Object::Callable(clock_fn));
+        environment.define("clock".to_owned(), Object::Callable(clock_fn));
         Interpreter {
             environment: Rc::new(environment),
             locals: HashMap::new(),
@@ -151,7 +152,7 @@ impl Interpreter {
                 }
             }
             Stmt::Class(name, methods) => {
-                let mut klass = LoxClass::new(&name.lexeme);
+                let mut klass = LoxClass::new(name.lexeme.clone());
 
                 // Methods are of type Stmt
                 //   The underlying variant *should* be Stmt::Function
@@ -159,7 +160,7 @@ impl Interpreter {
                 for method in methods {
                     if let Stmt::Function(LoxCallable::UserDefined(f)) = method {
                         let mut f = f.clone();
-                        f.initializer = f.name.lexeme == Rc::from("init".to_owned());
+                        f.initializer = f.name.lexeme == INIT_METHOD.to_owned();
                         klass.add_method(f);
                     } else {
                         unreachable!();
@@ -169,7 +170,7 @@ impl Interpreter {
                 let klass = Object::Callable(LoxCallable::ClassDefinition(klass));
                 fail_if_not_unique(&self.environment)?;
                 Rc::get_mut(&mut self.environment)
-                    .map(|e| e.define(&name.lexeme, klass))
+                    .map(|e| e.define(name.lexeme.clone(), klass))
                     .ok_or_else(|| unreachable!())?;
             }
             Stmt::Expression(expr) => {
@@ -189,7 +190,7 @@ impl Interpreter {
                         // constructor. This is not an error. We'll just propogate the original
                         // instance.
                         let mut token = Token::default();
-                        token.lexeme = Rc::from("this".to_owned());
+                        token.lexeme = "this".to_owned();
                         match self.environment.get(&token) {
                             Ok(t) => t,
                             Err(RloxError::UndefinedVariable) => {
@@ -202,7 +203,7 @@ impl Interpreter {
                 };
 
                 Rc::get_mut(&mut self.environment)
-                    .map(|e| e.define(&token.lexeme, value))
+                    .map(|e| e.define(token.lexeme.clone(), value))
                     .ok_or_else(|| unreachable!())?;
             }
             Stmt::While(condition, stmt) => {
@@ -218,7 +219,7 @@ impl Interpreter {
 
                 fail_if_not_unique(&self.environment)?;
                 Rc::get_mut(&mut self.environment)
-                    .map(|e| e.define(name, Object::Callable(f.clone())))
+                    .map(|e| e.define(name.to_owned(), Object::Callable(f.clone())))
                     .ok_or_else(|| unreachable!())?;
             }
             Stmt::Return(_, value) => {
@@ -388,7 +389,7 @@ impl Interpreter {
                             Rc::get_mut(&mut self.environment)
                                 .and_then(|e| {
                                     e.define(
-                                        &Rc::from("this".to_owned()),
+                                        "this".to_owned(),
                                         Object::Callable(LoxCallable::ClassInstance(instance)),
                                     );
 
@@ -401,7 +402,7 @@ impl Interpreter {
 
                         // TODO: don't clone
                         for (param, arg) in f.parameters.iter().zip(arguments.iter()) {
-                            environment.define(&param.lexeme, arg.clone())
+                            environment.define(param.lexeme.clone(), arg.clone())
                         }
 
                         if let Err(e) = self.execute_block(&f.body, environment) {
@@ -409,7 +410,7 @@ impl Interpreter {
                                 RloxError::Return(v) => {
                                     if f.initializer {
                                         let mut token = Token::default();
-                                        token.lexeme = Rc::from("this".to_owned());
+                                        token.lexeme = "this".to_owned();
                                         return self.environment.get(&token);
                                     } else {
                                         return Ok(v);
@@ -420,7 +421,7 @@ impl Interpreter {
                         } else {
                             if f.initializer {
                                 let mut token = Token::default();
-                                token.lexeme = Rc::from("this".to_owned());
+                                token.lexeme = "this".to_owned();
                                 return self.environment.get(&token);
                             } else {
                                 return Ok(Object::Nil);

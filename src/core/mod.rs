@@ -1,7 +1,6 @@
 use std::error;
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::rc::Rc;
 use std::result;
 
 mod interpreter;
@@ -14,6 +13,8 @@ pub type Parser = parser::Parser;
 pub type Result<T> = result::Result<T, RloxError>;
 pub type Resolver = resolver::Resolver;
 pub type Scanner = scanner::Scanner;
+
+const INIT_METHOD: &'static str = "init";
 
 #[derive(Debug, PartialEq)]
 pub enum RloxError {
@@ -221,7 +222,7 @@ impl TokenType {
 #[derive(Eq, Hash, Clone, Debug, PartialEq)]
 pub struct Token {
     token_type: TokenType,
-    lexeme: Rc<str>,
+    lexeme: String,
     line: usize,
 }
 
@@ -230,7 +231,7 @@ impl Token {
     pub fn new(token_type: TokenType, lexeme: String, line: usize) -> Self {
         Token {
             token_type,
-            lexeme: Rc::from(lexeme),
+            lexeme: lexeme,
             line,
         }
     }
@@ -240,7 +241,7 @@ impl Default for Token {
     fn default() -> Self {
         Token {
             token_type: TokenType::Eof,
-            lexeme: Rc::from(String::new()),
+            lexeme: String::new(),
             line: 0,
         }
     }
@@ -299,14 +300,14 @@ pub enum LoxCallable {
 
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]
 pub struct LoxClass {
-    name: Rc<str>,
+    name: String,
     methods: Vec<FunctionStmt>,
 }
 
 impl LoxClass {
-    fn new(name: &Rc<str>) -> Self {
+    fn new(name: String) -> Self {
         LoxClass {
-            name: Rc::clone(name),
+            name: name,
             methods: Vec::new(),
         }
     }
@@ -329,22 +330,14 @@ impl LoxCallable {
             Self::Clock => 0,
             Self::UserDefined(f) => f.parameters.len(),
             Self::ClassDefinition(d) => {
-                if let Some(m) = d
-                    .methods
-                    .iter()
-                    .find(|e| e.name.lexeme == Rc::from("init".to_owned()))
-                {
+                if let Some(m) = d.methods.iter().find(|e| e.name.lexeme == INIT_METHOD) {
                     m.parameters.len()
                 } else {
                     0
                 }
             }
             Self::ClassInstance(c) => {
-                if let Some(m) = c
-                    .methods
-                    .iter()
-                    .find(|e| e.name.lexeme == Rc::from("init".to_owned()))
-                {
+                if let Some(m) = c.methods.iter().find(|e| e.name.lexeme == INIT_METHOD) {
                     m.parameters.len()
                 } else {
                     0
@@ -363,7 +356,7 @@ struct Property {
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]
 pub struct LoxInstance {
     // This is a copy of the name at the time of creation.
-    name: Rc<str>,
+    name: String,
     // This differs from jlox since std::collections::HashMap is not Hash.
     // It might be slow.
     fields: Vec<Property>,
@@ -373,7 +366,7 @@ pub struct LoxInstance {
 impl LoxInstance {
     fn new(class: LoxClass) -> Self {
         LoxInstance {
-            name: Rc::clone(&class.name),
+            name: class.name.clone(),
             fields: Vec::new(),
             methods: class.methods,
         }
@@ -384,12 +377,7 @@ impl LoxInstance {
             return Ok(property.object.clone());
         }
 
-        // TODO: find a better way to compare a Rc<str> to &str
-        if let Some(method) = self
-            .methods
-            .iter()
-            .find(|e| e.name.lexeme == Rc::from(name.to_owned()))
-        {
+        if let Some(method) = self.methods.iter().find(|e| e.name.lexeme == name) {
             let mut method = method.clone();
             method.this = Some(self.clone());
             return Ok(Object::Callable(LoxCallable::UserDefined(method)));
@@ -398,10 +386,10 @@ impl LoxInstance {
         Err(RloxError::UndefinedProperty)
     }
 
-    fn set(&mut self, name: &Rc<str>, value: Object) {
+    fn set(&mut self, name: &str, value: Object) {
         let property = Property {
             // TODO Hmm?
-            name: name.to_string(),
+            name: name.to_owned(),
             object: value,
         };
 
@@ -492,7 +480,7 @@ mod tests {
                 initializer: false,
             };
 
-            let mut class = LoxClass::new(&Rc::from("foo".to_owned()));
+            let mut class = LoxClass::new("foo".to_owned());
             class.add_method(method.clone());
 
             let instance = LoxInstance::new(class);
@@ -507,7 +495,7 @@ mod tests {
 
         #[test]
         fn it_fails_for_nonexistent_methods() {
-            let class = LoxClass::new(&Rc::from("foo".to_owned()));
+            let class = LoxClass::new("foo".to_owned());
 
             let instance = LoxInstance::new(class);
 
@@ -516,21 +504,12 @@ mod tests {
 
         #[test]
         fn it_can_lookup_properties() {
-            let class = LoxClass::new(&Rc::from("foo".to_owned()));
+            let class = LoxClass::new("foo".to_owned());
 
             let mut instance = LoxInstance::new(class);
-            instance.set(
-                &Rc::from("foo".to_owned()),
-                Object::String("bar".to_owned()),
-            );
-            instance.set(
-                &Rc::from("bar".to_owned()),
-                Object::String("baz".to_owned()),
-            );
-            instance.set(
-                &Rc::from("baz".to_owned()),
-                Object::String("qux".to_owned()),
-            );
+            instance.set("foo", Object::String("bar".to_owned()));
+            instance.set("bar", Object::String("baz".to_owned()));
+            instance.set("baz", Object::String("qux".to_owned()));
 
             assert_eq!(Ok(Object::String("bar".to_owned())), instance.get("foo"));
             assert_eq!(Ok(Object::String("baz".to_owned())), instance.get("bar"));
@@ -539,7 +518,7 @@ mod tests {
 
         #[test]
         fn it_fails_for_nonexistent_properties() {
-            let class = LoxClass::new(&Rc::from("foo".to_owned()));
+            let class = LoxClass::new("foo".to_owned());
 
             let instance = LoxInstance::new(class);
 
