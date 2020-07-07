@@ -8,6 +8,8 @@ use super::{
     INIT_METHOD,
 };
 
+const THIS: &'static str = "this";
+
 /// Checks if an Rc is unique
 ///
 /// Returns RloxError::NonUniqueRc is the strong count or weak_count is greater
@@ -46,8 +48,8 @@ impl Environment {
         assert!(!self.values.is_empty());
     }
 
-    fn get(&self, name: &Token) -> Result<Object> {
-        match self.values.get(&name.lexeme) {
+    fn get(&self, name: &str) -> Result<Object> {
+        match self.values.get(name) {
             Some(s) => Ok(s.clone()),
             None => {
                 if let Some(e) = &self.enclosing {
@@ -90,7 +92,7 @@ impl Environment {
         Ok(())
     }
 
-    fn get_at(&self, distance: usize, name: &Token) -> Result<Object> {
+    fn get_at(&self, distance: usize, name: &str) -> Result<Object> {
         self.ancestor(distance, |values| {
             values
                 .ok_or(RloxError::UndefinedVariable)
@@ -189,9 +191,7 @@ impl Interpreter {
                         // If this variable does not exist, then we didn't run a user defined
                         // constructor. This is not an error. We'll just propogate the original
                         // instance.
-                        let mut token = Token::default();
-                        token.lexeme = "this".to_owned();
-                        match self.environment.get(&token) {
+                        match self.environment.get(THIS) {
                             Ok(t) => t,
                             Err(RloxError::UndefinedVariable) => {
                                 Object::Callable(LoxCallable::ClassInstance(c))
@@ -389,7 +389,7 @@ impl Interpreter {
                             Rc::get_mut(&mut self.environment)
                                 .and_then(|e| {
                                     e.define(
-                                        "this".to_owned(),
+                                        THIS.to_owned(),
                                         Object::Callable(LoxCallable::ClassInstance(instance)),
                                     );
 
@@ -409,9 +409,7 @@ impl Interpreter {
                             match e {
                                 RloxError::Return(v) => {
                                     if f.initializer {
-                                        let mut token = Token::default();
-                                        token.lexeme = "this".to_owned();
-                                        return self.environment.get(&token);
+                                        return self.environment.get(THIS);
                                     } else {
                                         return Ok(v);
                                     }
@@ -420,9 +418,7 @@ impl Interpreter {
                             }
                         } else {
                             if f.initializer {
-                                let mut token = Token::default();
-                                token.lexeme = "this".to_owned();
-                                return self.environment.get(&token);
+                                return self.environment.get(THIS);
                             } else {
                                 return Ok(Object::Nil);
                             }
@@ -491,8 +487,8 @@ impl Interpreter {
 
     fn look_up_variable(&mut self, name: &Token, expr: &Expr) -> Result<Object> {
         self.locals.get(expr).map_or_else(
-            || self.environment.get(name),
-            |distance| self.environment.get_at(*distance, &name),
+            || self.environment.get(&name.lexeme),
+            |distance| self.environment.get_at(*distance, &name.lexeme),
         )
     }
 
