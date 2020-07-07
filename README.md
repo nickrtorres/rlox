@@ -13,7 +13,7 @@ incomplete list is provided below.
 - [x] Control Flow
 - [ ] Functions
 - [x] Resolving and Binding
-- [ ] Classes
+- [x] Classes
 - [ ] Inheritance
 
 ### General
