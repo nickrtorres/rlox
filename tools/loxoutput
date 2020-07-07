@@ -29,9 +29,9 @@ def write_out(out='', category='', name='', ext=''):
 if __name__ == '__main__':
     parser = ArgumentParser('Creates a stdout or stderr file from running '
                             '`rlox` on <category> and <name>\n')
-    parser.add_argument('--type,-t', dest='type', required=True)
-    parser.add_argument('--category,-c', dest='category', required=True)
-    parser.add_argument('--name,-n', dest='name', required=True)
+    parser.add_argument('--type', '-t', dest='type', required=True)
+    parser.add_argument('--category', '-c', dest='category', required=True)
+    parser.add_argument('--name', '-n', dest='name', required=True)
     args = parser.parse_args()
 
     test = f'tests/lox/{args.category}/{args.name}.lox'
