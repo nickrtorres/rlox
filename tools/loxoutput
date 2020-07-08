@@ -52,6 +52,11 @@ if __name__ == '__main__':
                   category=args.category,
                   name=args.name,
                   ext='stderr')
+    except AssertionError:
+        print(
+            f'{sys.argv[0]}: error: specified type ({args.type}) but process exited normally'
+        )
+        sys.exit(1)
     else:
         write_out(out=stdout,
                   category=args.category,

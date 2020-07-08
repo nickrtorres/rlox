@@ -59,6 +59,8 @@ pub enum RloxError {
     ReturnValueFromConstructor,
     // expected, actual
     ArgumentMismatch(usize, usize),
+    InheritFromSelf,
+    InheritNonClass,
 }
 
 impl fmt::Display for RloxError {
@@ -320,13 +322,15 @@ pub enum LoxCallable {
 pub struct LoxClass {
     name: String,
     methods: Vec<FunctionStmt>,
+    superclass: Option<Box<LoxClass>>,
 }
 
 impl LoxClass {
-    fn new(name: String) -> Self {
+    fn new(name: String, superclass: Option<Box<LoxClass>>) -> Self {
         LoxClass {
             name: name,
             methods: Vec::new(),
+            superclass,
         }
     }
 
@@ -347,20 +351,22 @@ impl LoxCallable {
         match self {
             Self::Clock => 0,
             Self::UserDefined(f) => f.parameters.len(),
+            // init is a bit of a strange case. If we don't find an init method on ourselves then
+            // we need to look at our parent (if they exist).
             Self::ClassDefinition(d) => {
                 if let Some(m) = d.methods.iter().find(|e| e.name.lexeme == INIT_METHOD) {
                     m.parameters.len()
-                } else {
-                    0
-                }
-            }
-            Self::ClassInstance(c) => {
-                if let Some(m) = c.methods.iter().find(|e| e.name.lexeme == INIT_METHOD) {
+                } else if let Some(m) = d
+                    .superclass
+                    .as_ref()
+                    .and_then(|s| s.methods.iter().find(|e| e.name.lexeme == INIT_METHOD))
+                {
                     m.parameters.len()
                 } else {
                     0
                 }
             }
+            Self::ClassInstance(_) => 0,
         }
     }
 }
@@ -379,14 +385,16 @@ pub struct LoxInstance {
     // It might be slow.
     fields: Vec<Property>,
     methods: Vec<FunctionStmt>,
+    superclass: Option<Box<LoxClass>>,
 }
 
 impl LoxInstance {
-    fn new(class: LoxClass) -> Self {
+    fn new(class: LoxClass, superclass: Option<Box<LoxClass>>) -> Self {
         LoxInstance {
             name: class.name.clone(),
             fields: Vec::new(),
             methods: class.methods,
+            superclass,
         }
     }
 
@@ -398,10 +406,37 @@ impl LoxInstance {
         if let Some(method) = self.methods.iter().find(|e| e.name.lexeme == name) {
             let mut method = method.clone();
             method.this = Some(self.clone());
+            method.super_class = self.superclass.clone().map(|s| *s);
+            return Ok(Object::Callable(LoxCallable::UserDefined(method)));
+        } else if let Some(method) = self
+            .superclass
+            .as_ref()
+            .map(|s| s.methods.iter().find(|e| e.name.lexeme == name))
+            .flatten()
+        {
+            let mut method = method.clone();
+            method.this = Some(self.clone());
+            method.super_class = self.superclass.clone().map(|s| *s);
             return Ok(Object::Callable(LoxCallable::UserDefined(method)));
         }
 
         Err(RloxError::UndefinedProperty)
+    }
+
+    fn get_super(&self, name: &str) -> Result<Object> {
+        if let Some(method) = self
+            .superclass
+            .as_ref()
+            .map(|s| s.methods.iter().find(|e| e.name.lexeme == name))
+            .flatten()
+        {
+            let mut method = method.clone();
+            method.this = Some(self.clone());
+            method.super_class = self.superclass.clone().map(|s| *s);
+            Ok(Object::Callable(LoxCallable::UserDefined(method)))
+        } else {
+            Err(RloxError::UndefinedProperty)
+        }
     }
 
     fn set(&mut self, name: &str, value: Object) {
@@ -452,6 +487,7 @@ pub enum Expr {
     Literal(Object),
     Logical(Box<Expr>, Token, Box<Expr>),
     Set(Box<Expr>, Token, Box<Expr>),
+    Super(Token, Token),
     This(Token),
     Unary(Token, Box<Expr>),
     Variable(Token),
@@ -464,6 +500,7 @@ pub struct FunctionStmt {
     parameters: Vec<Token>,
     body: Vec<Stmt>,
     this: Option<LoxInstance>,
+    super_class: Option<LoxClass>,
     initializer: bool,
 }
 
@@ -471,10 +508,10 @@ pub struct FunctionStmt {
 pub enum Stmt {
     Block(Vec<Stmt>),
     // TODO maybe this should be Vec of LoxCallable?
-    Class(Token, Vec<Stmt>),
-    If(Expr, Box<Stmt>, Option<Box<Stmt>>),
-    Function(LoxCallable),
+    Class(Token, Option<Expr>, Vec<Stmt>),
     Expression(Expr),
+    Function(LoxCallable),
+    If(Expr, Box<Stmt>, Option<Box<Stmt>>),
     Print(Expr),
     Return(Token, Option<Expr>),
     Var(Token, Option<Expr>),
@@ -495,12 +532,13 @@ mod tests {
                 body: Vec::new(),
                 this: None,
                 initializer: false,
+                super_class: None,
             };
 
-            let mut class = LoxClass::new("foo".to_owned());
+            let mut class = LoxClass::new("foo".to_owned(), None);
             class.add_method(method.clone());
 
-            let instance = LoxInstance::new(class);
+            let instance = LoxInstance::new(class, None);
             let mut expected_method = method.clone();
             expected_method.this = Some(instance.clone());
 
@@ -512,18 +550,18 @@ mod tests {
 
         #[test]
         fn it_fails_for_nonexistent_methods() {
-            let class = LoxClass::new("foo".to_owned());
+            let class = LoxClass::new("foo".to_owned(), None);
 
-            let instance = LoxInstance::new(class);
+            let instance = LoxInstance::new(class, None);
 
             assert_eq!(Err(RloxError::UndefinedProperty), instance.get("bar"));
         }
 
         #[test]
         fn it_can_lookup_properties() {
-            let class = LoxClass::new("foo".to_owned());
+            let class = LoxClass::new("foo".to_owned(), None);
 
-            let mut instance = LoxInstance::new(class);
+            let mut instance = LoxInstance::new(class, None);
             instance.set("foo", Object::String("bar".to_owned()));
             instance.set("bar", Object::String("baz".to_owned()));
             instance.set("baz", Object::String("qux".to_owned()));
@@ -535,9 +573,9 @@ mod tests {
 
         #[test]
         fn it_fails_for_nonexistent_properties() {
-            let class = LoxClass::new("foo".to_owned());
+            let class = LoxClass::new("foo".to_owned(), None);
 
-            let instance = LoxInstance::new(class);
+            let instance = LoxInstance::new(class, None);
 
             assert_eq!(Err(RloxError::UndefinedProperty), instance.get("foo"));
             assert_eq!(Err(RloxError::UndefinedProperty), instance.get("bar"));

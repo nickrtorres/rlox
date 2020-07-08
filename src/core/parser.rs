@@ -77,6 +77,14 @@ impl Parser {
 
     fn class_declaration(&self) -> Result<Stmt> {
         let name = self.consume(TokenType::Identifier)?;
+
+        let superclass = if self.match_token(TokenType::Less) {
+            self.consume(TokenType::Identifier)?;
+            Some(Expr::Variable(self.previous()?))
+        } else {
+            None
+        };
+
         self.consume(TokenType::LeftBrace)?;
 
         let mut methods = Vec::new();
@@ -86,7 +94,7 @@ impl Parser {
 
         self.consume(TokenType::RightBrace)?;
 
-        Ok(Stmt::Class(name, methods))
+        Ok(Stmt::Class(name, superclass, methods))
     }
 
     fn function(&self) -> Result<Stmt> {
@@ -118,6 +126,7 @@ impl Parser {
             parameters,
             body,
             this: None,
+            super_class: None,
             initializer: false,
         })))
     }
@@ -445,6 +454,14 @@ impl Parser {
         }
         if self.match_token(TokenType::Nil) {
             return Ok(Box::new(Expr::Literal(Object::Nil)));
+        }
+
+        if self.match_token(TokenType::Super) {
+            let keyword = self.previous()?;
+            self.consume(TokenType::Dot)?;
+            let method = self.consume(TokenType::Identifier)?;
+
+            return Ok(Box::new(Expr::Super(keyword, method)));
         }
 
         // TODO: constructing variants for Number and String isn't ideal

@@ -50,7 +50,7 @@ impl Resolver {
                 self.resolve(statements)?;
                 self.end_scope();
             }
-            Stmt::Class(name, methods) => {
+            Stmt::Class(name, superclass, methods) => {
                 let enclosing = self.current_class;
                 self.current_class = Some(ClassType);
                 self.declare(name)?;
@@ -72,7 +72,29 @@ impl Resolver {
                     }
                 }
 
+                // This differs a bit from jlox.
+                if let Some(s) = superclass {
+                    if let Expr::Variable(ref token) = s {
+                        if token.lexeme == name.lexeme {
+                            return Err(RloxError::InheritFromSelf);
+                        }
+                        self.resolve_expression(s)?;
+                    } else {
+                        // The parser should make this unreachable
+                        unreachable!();
+                    }
+
+                    self.begin_scope();
+                    self.scopes
+                        .last_mut()
+                        .map(|m| m.insert("super".to_owned(), true));
+                }
+
                 self.end_scope();
+                if superclass.is_some() {
+                    self.end_scope();
+                }
+
                 self.current_class = enclosing;
             }
             Stmt::If(expr, then_branch, else_branch) => {
@@ -168,6 +190,7 @@ impl Resolver {
 
                 self.resolve_local(expr, token)?;
             }
+            Expr::Super(keyword, _) => self.resolve_local(expr, keyword)?,
         }
 
         Ok(())

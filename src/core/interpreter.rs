@@ -104,7 +104,11 @@ impl Environment {
         f: F,
     ) -> Result<Object> {
         let mut environment: Option<Rc<Environment>> = Some(Rc::new(self.clone()));
-        for _ in 0..distance {
+        for _ in 0..(distance) {
+            assert!(environment
+                .as_ref()
+                .map_or(false, |e| e.enclosing.is_some()));
+
             // TODO: yikes!
             environment = environment.map(|e| Rc::clone(&e.enclosing.as_ref().unwrap()))
         }
@@ -113,6 +117,7 @@ impl Environment {
     }
 }
 
+#[derive(Debug)]
 pub struct Interpreter {
     pub environment: Rc<Environment>,
     pub locals: HashMap<Expr, usize>,
@@ -151,8 +156,23 @@ impl Interpreter {
                     self.execute(e)?;
                 }
             }
-            Stmt::Class(name, methods) => {
-                let mut klass = LoxClass::new(name.lexeme.clone());
+            Stmt::Class(name, superclass, methods) => {
+                let superclass: Option<Box<LoxClass>> = if let Some(s) = superclass {
+                    if let Object::Callable(LoxCallable::ClassDefinition(s)) = self.evaluate(s)? {
+                        if s.name == name.lexeme {
+                            // placeholder
+                            return Err(RloxError::InheritNonClass);
+                        }
+                        Some(Box::new(s))
+                    } else {
+                        // TODO valid state?
+                        None
+                    }
+                } else {
+                    None
+                };
+
+                let mut klass = LoxClass::new(name.lexeme.clone(), superclass);
 
                 // Methods are of type Stmt
                 //   The underlying variant *should* be Stmt::Function
@@ -256,7 +276,8 @@ impl Interpreter {
         fail_if_not_unique(&self.environment)?;
         Rc::get_mut(&mut self.environment)
             .ok_or_else(|| unreachable!())
-            .and_then(Environment::flatten)
+            .and_then(Environment::flatten)?;
+        Ok(())
     }
 
     fn evaluate(&mut self, expr: &Expr) -> Result<Object> {
@@ -356,7 +377,7 @@ impl Interpreter {
                 }
             }
             Expr::Grouping(group) => self.evaluate(group),
-            Expr::Variable(token) => Ok(self.look_up_variable(&token, expr)?),
+            Expr::Variable(token) => Ok(self.look_up_variable(&token.lexeme, expr)?),
             Expr::Call(callee, _, args) => {
                 let function = self.evaluate(callee).and_then(|fun| match fun {
                     Object::Callable(c) => Ok(c),
@@ -398,6 +419,17 @@ impl Interpreter {
                                 .ok_or_else(|| unreachable!())?;
                         }
 
+                        if let Some(superclass) = f.super_class {
+                            Rc::get_mut(&mut self.environment)
+                                .map(|e| {
+                                    e.define(
+                                        "super".to_owned(),
+                                        Object::Callable(LoxCallable::ClassDefinition(superclass)),
+                                    )
+                                })
+                                .ok_or_else(|| unreachable!())?;
+                        }
+
                         let mut environment = Environment::from(&self.environment);
 
                         // TODO: don't clone
@@ -425,7 +457,8 @@ impl Interpreter {
                         }
                     }
                     LoxCallable::ClassDefinition(class) => {
-                        let instance = LoxInstance::new(class);
+                        let superclass = class.superclass.clone();
+                        let instance = LoxInstance::new(class, superclass);
                         if let Ok(Object::Callable(LoxCallable::UserDefined(f))) =
                             instance.get("init")
                         {
@@ -481,14 +514,32 @@ impl Interpreter {
                     Err(RloxError::PropertyAccessOnNonInstance)
                 }
             }
-            Expr::This(keyword) => Ok(self.look_up_variable(keyword, expr)?),
+            Expr::This(keyword) => Ok(self.look_up_variable(&keyword.lexeme, expr)?),
+            Expr::Super(_, method) => {
+                let superclass = self.look_up_variable("super", expr)?;
+                if let Object::Callable(LoxCallable::ClassDefinition(c)) = superclass {
+                    if c.methods.iter().any(|m| m.name.lexeme == method.lexeme) {
+                        if let Object::Callable(LoxCallable::ClassInstance(c)) =
+                            self.environment.get("this")?
+                        {
+                            return c.get_super(&method.lexeme);
+                        } else {
+                            unreachable!(); // ?
+                        }
+                    } else {
+                        return Err(RloxError::UndefinedProperty);
+                    }
+                } else {
+                    unreachable!();
+                }
+            }
         }
     }
 
-    fn look_up_variable(&mut self, name: &Token, expr: &Expr) -> Result<Object> {
+    fn look_up_variable(&mut self, name: &str, expr: &Expr) -> Result<Object> {
         self.locals.get(expr).map_or_else(
-            || self.environment.get(&name.lexeme),
-            |distance| self.environment.get_at(*distance, &name.lexeme),
+            || self.environment.get(name),
+            |distance| self.environment.get_at(*distance, name),
         )
     }
 

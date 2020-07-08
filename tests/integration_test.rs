@@ -100,9 +100,18 @@ verify_rlox_program_ok! {"function", "parameters"}
 verify_rlox_program_ok! {"function", "print"}
 verify_rlox_program_ok! {"function", "recursion"}
 
+// Inheritance (ok)
+verify_rlox_program_ok! {"inheritance", "constructor"}
+verify_rlox_program_ok! {"inheritance", "inherit_methods"}
+
 // Method (ok)
 verify_rlox_program_ok! {"method", "arity"}
 verify_rlox_program_ok! {"method", "empty_block"}
+
+// Super (ok)
+verify_rlox_program_ok! {"super", "call_other_method"}
+verify_rlox_program_ok! {"super", "call_same_method"}
+verify_rlox_program_ok! {"super", "constructor"}
 
 // This (ok)
 verify_rlox_program_ok! {"this", "this_in_method"}
