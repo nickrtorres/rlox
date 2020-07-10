@@ -503,14 +503,12 @@ impl Parser {
 
     fn consume(&self, token_type: TokenType) -> Result<Token> {
         if !self.check(token_type.clone()) {
-            // We already consumed the problematic token.  We need to step back
-            // for a second to grab the bad line number. It should be *impossible*
-            // for the token we just consumed to not be there.
-            let line = self.previous().map_err(|_| unreachable!())?.line;
+            let token = self.advance().ok_or_else(|| unreachable!())?;
 
             match token_type {
-                TokenType::RightParen => return Err(RloxError::UnclosedParenthesis(line)),
-                TokenType::Semicolon => return Err(RloxError::MissingSemicolon(line)),
+                TokenType::RightParen => return Err(RloxError::UnclosedParenthesis(token.line)),
+                TokenType::Semicolon => return Err(RloxError::MissingSemicolon(token.line)),
+                TokenType::Identifier => return Err(RloxError::ExpectedVarName(token)),
                 _ => unreachable!(),
             }
         }

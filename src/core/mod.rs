@@ -65,6 +65,7 @@ pub enum RloxError {
     NotCallable,
     TooManyArgs(Token),
     ExpectedExpression(Token),
+    ExpectedVarName(Token),
 }
 
 impl fmt::Display for RloxError {
@@ -99,6 +100,7 @@ impl fmt::Display for RloxError {
             ),
             Self::InheritNonClass => write!(f, "runtime error: Superclass must be a class."),
             Self::ExpectedExpression(t) => write!(f, "Error at '{}': Expect expression.", t.lexeme),
+            Self::ExpectedVarName(t) => write!(f, "Error at '{}': Expect variable name.", t.lexeme),
             // TODO: actually handle other errors
             _ => write!(f, "{:?}", self),
         }

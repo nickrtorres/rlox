@@ -201,11 +201,22 @@ verify_rlox_program_err! {"this", "this_in_top_level_function"}
 verify_rlox_program_ok! {"variable", "early_bound"}
 verify_rlox_program_ok! {"variable", "in_middle_of_block"}
 verify_rlox_program_ok! {"variable", "in_nested_block"}
+verify_rlox_program_ok! {"variable", "local_from_method"}
+verify_rlox_program_ok! {"variable", "redefine_global"}
+verify_rlox_program_ok! {"variable", "scope_reuse_in_different_blocks"}
+verify_rlox_program_ok! {"variable", "shadow_and_local"}
+verify_rlox_program_ok! {"variable", "shadow_global"}
+verify_rlox_program_ok! {"variable", "shadow_local"}
+verify_rlox_program_ok! {"variable", "unreached_undefined"}
+verify_rlox_program_ok! {"variable", "use_global_in_initializer"}
 
 // Variable (err)
 verify_rlox_program_err! {"variable", "collide_with_parameter"}
 verify_rlox_program_err! {"variable", "duplicate_local"}
 verify_rlox_program_err! {"variable", "duplicate_parameter"}
+verify_rlox_program_err! {"variable", "use_false_as_var"}
+verify_rlox_program_err! {"variable", "use_nil_as_var"}
+verify_rlox_program_err! {"variable", "use_this_as_var"}
 
 // While (ok)
 verify_rlox_program_ok! {"while", "return_inside"}
