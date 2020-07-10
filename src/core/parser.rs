@@ -146,9 +146,9 @@ impl Parser {
 
     fn statement(&self) -> Result<Stmt> {
         if self.match_token(TokenType::For) {
-            return self.for_statement();
+            self.for_statement()
         } else if self.match_token(TokenType::If) {
-            return self.if_statement();
+            self.if_statement()
         } else if self.match_token(TokenType::Print) {
             self.print_statement()
         } else if self.match_token(TokenType::Return) {

@@ -366,7 +366,7 @@ impl Interpreter {
                     return Ok(left);
                 }
 
-                return self.evaluate(right);
+                self.evaluate(right)
             }
             Expr::Get(object, name) => {
                 if let Object::Callable(LoxCallable::ClassInstance(c)) = self.evaluate(object)? {
@@ -440,12 +440,12 @@ impl Interpreter {
                             match e {
                                 RloxError::Return(v) => {
                                     if f.initializer {
-                                        return self.environment.get(THIS);
+                                        self.environment.get(THIS)
                                     } else {
-                                        return Ok(v);
+                                        Ok(v)
                                     }
                                 }
-                                _ => return Err(e),
+                                _ => Err(e),
                             }
                         } else if f.initializer {
                             self.environment.get(THIS)
@@ -519,12 +519,12 @@ impl Interpreter {
                         if let Object::Callable(LoxCallable::ClassInstance(c)) =
                             self.environment.get("this")?
                         {
-                            return c.get_super(&method.lexeme);
+                            c.get_super(&method.lexeme)
                         } else {
                             unreachable!(); // ?
                         }
                     } else {
-                        return Err(RloxError::UndefinedProperty);
+                        Err(RloxError::UndefinedProperty)
                     }
                 } else {
                     unreachable!();
