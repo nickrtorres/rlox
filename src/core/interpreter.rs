@@ -9,6 +9,7 @@ use super::{
 };
 
 const THIS: &'static str = "this";
+const SUPER: &str = "super";
 
 /// Checks if an Rc is unique
 ///
@@ -423,7 +424,7 @@ impl Interpreter {
                             Rc::get_mut(&mut self.environment)
                                 .map(|e| {
                                     e.define(
-                                        "super".to_owned(),
+                                        SUPER.to_owned(),
                                         Object::Callable(LoxCallable::ClassDefinition(superclass)),
                                     )
                                 })
@@ -516,7 +517,7 @@ impl Interpreter {
             }
             Expr::This(keyword) => Ok(self.look_up_variable(&keyword.lexeme, expr)?),
             Expr::Super(_, method) => {
-                let superclass = self.look_up_variable("super", expr)?;
+                let superclass = self.look_up_variable(SUPER, expr)?;
                 if let Object::Callable(LoxCallable::ClassDefinition(c)) = superclass {
                     if c.methods.iter().any(|m| m.name.lexeme == method.lexeme) {
                         if let Object::Callable(LoxCallable::ClassInstance(c)) =
