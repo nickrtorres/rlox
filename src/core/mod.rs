@@ -405,26 +405,32 @@ impl LoxInstance {
         if let Some(method) = self.methods.iter().find(|e| e.name.lexeme == name) {
             let mut method = method.clone();
             method.this = Some(self.clone());
-            method.super_class = self.superclass.clone().map(|s| *s);
+            method.superclass = self.superclass.clone().map(|s| *s);
             return Ok(Object::Callable(LoxCallable::UserDefined(method)));
         } else {
             self.get_super(name)
         }
     }
 
+    /// Searches for `name` in `self`'s inheritance tree
+    ///
+    /// A super method can be be arbitrarily nested. We need to walk the
+    /// superclass list until we (1) find the method we're looking for or (2)
+    /// exhaust the candidate list.
     fn get_super(&self, name: &str) -> Result<Object> {
-        if let Some(method) = self
-            .superclass
-            .as_ref()
-            .and_then(|s| s.methods.iter().find(|e| e.name.lexeme == name))
-        {
-            let mut method = method.clone();
-            method.this = Some(self.clone());
-            method.super_class = self.superclass.clone().map(|s| *s);
-            Ok(Object::Callable(LoxCallable::UserDefined(method)))
-        } else {
-            Err(RloxError::UndefinedProperty)
+        let mut superclass = self.superclass.clone();
+        while let Some(candidate) = superclass {
+            if let Some(method) = candidate.methods.iter().find(|e| e.name.lexeme == name) {
+                let mut method = method.clone();
+                method.this = Some(self.clone());
+                method.superclass = self.superclass.clone().map(|s| *s);
+                return Ok(Object::Callable(LoxCallable::UserDefined(method)));
+            }
+
+            superclass = candidate.superclass;
         }
+
+        Err(RloxError::UndefinedProperty)
     }
 
     fn set(&mut self, name: &str, value: Object) {
@@ -488,7 +494,7 @@ pub struct FunctionStmt {
     parameters: Vec<Token>,
     body: Vec<Stmt>,
     this: Option<LoxInstance>,
-    super_class: Option<LoxClass>,
+    superclass: Option<LoxClass>,
     initializer: bool,
 }
 
@@ -520,7 +526,7 @@ mod tests {
                 body: Vec::new(),
                 this: None,
                 initializer: false,
-                super_class: None,
+                superclass: None,
             };
 
             let mut class = LoxClass::new("foo".to_owned(), None);
@@ -568,6 +574,118 @@ mod tests {
             assert_eq!(Err(RloxError::UndefinedProperty), instance.get("foo"));
             assert_eq!(Err(RloxError::UndefinedProperty), instance.get("bar"));
             assert_eq!(Err(RloxError::UndefinedProperty), instance.get("baz"));
+        }
+
+        #[test]
+        fn it_can_walk_the_inheritance_tree() {
+            // Emulates an inheritance tree like
+            //
+            // class Base {
+            //   f() {}
+            // }
+            //
+            // class Derived < Base {}
+            //
+            let mut base = LoxClass::new("base".to_owned(), None);
+            let mut method = FunctionStmt {
+                name: Token::new(TokenType::Identifier, "f".to_owned(), 1),
+                parameters: Vec::new(),
+                body: Vec::new(),
+                this: None,
+                initializer: false,
+                superclass: None,
+            };
+            base.add_method(method.clone());
+
+            let derived = LoxClass::new("derived".to_owned(), Some(Box::new(base.clone())));
+
+            let instance = LoxInstance::new(derived, Some(Box::new(base.clone())));
+            method.this = Some(instance.clone());
+            method.superclass = Some(base);
+
+            assert_eq!(
+                Ok(Object::Callable(LoxCallable::UserDefined(method))),
+                instance.get("f")
+            );
+        }
+
+        #[test]
+        fn it_can_walk_the_inheritance_tree_indirect() {
+            // Emulates an inheritance tree like
+            //
+            // class Base {
+            //   f() {}
+            // }
+            //
+            // class Indirect < Base {}
+            //
+            // class Derived < Indirect {}
+            //
+            let mut base = LoxClass::new("base".to_owned(), None);
+            let mut method = FunctionStmt {
+                name: Token::new(TokenType::Identifier, "f".to_owned(), 1),
+                parameters: Vec::new(),
+                body: Vec::new(),
+                this: None,
+                initializer: false,
+                superclass: None,
+            };
+            base.add_method(method.clone());
+
+            let indirect = LoxClass::new("indirect".to_owned(), Some(Box::new(base.clone())));
+            let derived = LoxClass::new("derived".to_owned(), Some(Box::new(indirect.clone())));
+
+            let instance = LoxInstance::new(derived, Some(Box::new(indirect.clone())));
+            method.this = Some(instance.clone());
+            method.superclass = Some(indirect);
+
+            assert_eq!(
+                Ok(Object::Callable(LoxCallable::UserDefined(method))),
+                instance.get("f")
+            );
+        }
+
+        #[test]
+        fn it_can_walk_the_inheritance_tree_very_indirect() {
+            // Emulates an inheritance tree like
+            //
+            // class Base {
+            //   f() {}
+            // }
+            //
+            // class IndirectOne < Base {}
+            //
+            // class IndirectTwo < IndirectOne {}
+            //
+            // class Derived < IndirectTwo {}
+            //
+            let mut base = LoxClass::new("base".to_owned(), None);
+            let mut method = FunctionStmt {
+                name: Token::new(TokenType::Identifier, "f".to_owned(), 1),
+                parameters: Vec::new(),
+                body: Vec::new(),
+                this: None,
+                initializer: false,
+                superclass: None,
+            };
+            base.add_method(method.clone());
+
+            let indirect_one =
+                LoxClass::new("indirect_one".to_owned(), Some(Box::new(base.clone())));
+            let indirect_two = LoxClass::new(
+                "indirect_two".to_owned(),
+                Some(Box::new(indirect_one.clone())),
+            );
+            let derived = LoxClass::new("derived".to_owned(), Some(Box::new(indirect_two.clone())));
+
+            let instance = LoxInstance::new(derived, Some(Box::new(indirect_two.clone())));
+            method.this = Some(instance.clone());
+            method.superclass = Some(indirect_two);
+
+            assert_eq!(
+                Ok(Object::Callable(LoxCallable::UserDefined(method))),
+                instance.get("f")
+            );
         }
     }
 }

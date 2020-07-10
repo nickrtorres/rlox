@@ -112,6 +112,7 @@ verify_rlox_program_ok! {"method", "empty_block"}
 verify_rlox_program_ok! {"super", "call_other_method"}
 verify_rlox_program_ok! {"super", "call_same_method"}
 verify_rlox_program_ok! {"super", "constructor"}
+verify_rlox_program_ok! {"super", "indirectly_inherited"}
 
 // This (ok)
 verify_rlox_program_ok! {"this", "this_in_method"}

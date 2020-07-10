@@ -416,7 +416,7 @@ impl Interpreter {
                                 .ok_or_else(|| unreachable!())?;
                         }
 
-                        if let Some(superclass) = f.super_class {
+                        if let Some(superclass) = f.superclass {
                             Rc::get_mut(&mut self.environment)
                                 .map(|e| {
                                     e.define(
@@ -512,17 +512,13 @@ impl Interpreter {
             Expr::This(keyword) => Ok(self.look_up_variable(&keyword.lexeme, expr)?),
             Expr::Super(_, method) => {
                 let superclass = self.look_up_variable(SUPER, expr)?;
-                if let Object::Callable(LoxCallable::ClassDefinition(c)) = superclass {
-                    if c.methods.iter().any(|m| m.name.lexeme == method.lexeme) {
-                        if let Object::Callable(LoxCallable::ClassInstance(c)) =
-                            self.environment.get("this")?
-                        {
-                            c.get_super(&method.lexeme)
-                        } else {
-                            unreachable!(); // ?
-                        }
+                if let Object::Callable(LoxCallable::ClassDefinition(_)) = superclass {
+                    if let Object::Callable(LoxCallable::ClassInstance(c)) =
+                        self.environment.get("this")?
+                    {
+                        c.get_super(&method.lexeme)
                     } else {
-                        Err(RloxError::UndefinedProperty)
+                        unreachable!(); // ?
                     }
                 } else {
                     unreachable!();

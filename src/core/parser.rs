@@ -126,7 +126,7 @@ impl Parser {
             parameters,
             body,
             this: None,
-            super_class: None,
+            superclass: None,
             initializer: false,
         })))
     }
