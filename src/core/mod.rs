@@ -349,7 +349,6 @@ impl LoxCallable {
     // TODO clean this up
     pub fn arity(&self) -> usize {
         match self {
-            Self::Clock => 0,
             Self::UserDefined(f) => f.parameters.len(),
             // init is a bit of a strange case. If we don't find an init method on ourselves then
             // we need to look at our parent (if they exist).
@@ -366,7 +365,7 @@ impl LoxCallable {
                     0
                 }
             }
-            Self::ClassInstance(_) => 0,
+            Self::Clock | Self::ClassInstance(_) => 0,
         }
     }
 }
