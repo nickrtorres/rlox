@@ -408,19 +408,9 @@ impl LoxInstance {
             method.this = Some(self.clone());
             method.super_class = self.superclass.clone().map(|s| *s);
             return Ok(Object::Callable(LoxCallable::UserDefined(method)));
-        } else if let Some(method) = self
-            .superclass
-            .as_ref()
-            .map(|s| s.methods.iter().find(|e| e.name.lexeme == name))
-            .flatten()
-        {
-            let mut method = method.clone();
-            method.this = Some(self.clone());
-            method.super_class = self.superclass.clone().map(|s| *s);
-            return Ok(Object::Callable(LoxCallable::UserDefined(method)));
+        } else {
+            self.get_super(name)
         }
-
-        Err(RloxError::UndefinedProperty)
     }
 
     fn get_super(&self, name: &str) -> Result<Object> {
