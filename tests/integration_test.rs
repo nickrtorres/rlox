@@ -210,3 +210,8 @@ verify_rlox_program_err! {"variable", "duplicate_parameter"}
 // While (ok)
 verify_rlox_program_ok! {"while", "return_inside"}
 verify_rlox_program_ok! {"while", "syntax"}
+
+// While (err)
+verify_rlox_program_err! {"while", "class_in_body"}
+verify_rlox_program_err! {"while", "fun_in_body"}
+verify_rlox_program_err! {"while", "var_in_body"}

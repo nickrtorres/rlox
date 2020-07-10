@@ -494,8 +494,11 @@ impl Parser {
             return Ok(Box::new(Expr::Grouping(expr)));
         }
 
-        // TODO is this reachable?
-        unimplemented!();
+        Err(RloxError::ExpectedExpression(self.advance().ok_or_else(
+            || {
+                unreachable!();
+            },
+        )?))
     }
 
     fn consume(&self, token_type: TokenType) -> Result<Token> {
