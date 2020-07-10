@@ -362,10 +362,8 @@ impl Interpreter {
                     if let Object::Bool(true) = left {
                         return Ok(left);
                     }
-                } else {
-                    if let Object::Bool(false) = left {
-                        return Ok(left);
-                    }
+                } else if let Object::Bool(false) = left {
+                    return Ok(left);
                 }
 
                 return self.evaluate(right);
@@ -449,12 +447,10 @@ impl Interpreter {
                                 }
                                 _ => return Err(e),
                             }
+                        } else if f.initializer {
+                            self.environment.get(THIS)
                         } else {
-                            if f.initializer {
-                                return self.environment.get(THIS);
-                            } else {
-                                return Ok(Object::Nil);
-                            }
+                            Ok(Object::Nil)
                         }
                     }
                     LoxCallable::ClassDefinition(class) => {
