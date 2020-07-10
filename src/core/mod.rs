@@ -417,8 +417,7 @@ impl LoxInstance {
         if let Some(method) = self
             .superclass
             .as_ref()
-            .map(|s| s.methods.iter().find(|e| e.name.lexeme == name))
-            .flatten()
+            .and_then(|s| s.methods.iter().find(|e| e.name.lexeme == name))
         {
             let mut method = method.clone();
             method.this = Some(self.clone());
