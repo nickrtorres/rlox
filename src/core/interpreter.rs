@@ -181,7 +181,7 @@ impl Interpreter {
                 for method in methods {
                     if let Stmt::Function(LoxCallable::UserDefined(f)) = method {
                         let mut f = f.clone();
-                        f.initializer = f.name.lexeme == INIT_METHOD.to_owned();
+                        f.initializer = f.name.lexeme == INIT_METHOD;
                         klass.add_method(f);
                     } else {
                         unreachable!();
