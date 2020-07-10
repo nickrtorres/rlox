@@ -15,6 +15,7 @@ pub type Resolver = resolver::Resolver;
 pub type Scanner = scanner::Scanner;
 
 const INIT_METHOD: &str = "init";
+const MAX_PARAMS: usize = 255;
 
 #[derive(Debug, PartialEq)]
 pub enum RloxError {
@@ -54,13 +55,15 @@ pub enum RloxError {
     VariableRedefinition,
     ReturnInNonFunction,
     PropertyAccessOnNonInstance,
-    UndefinedProperty,
+    UndefinedProperty(String),
     ThisOutsideOfClass,
     ReturnValueFromConstructor,
     // expected, actual
     ArgumentMismatch(usize, usize),
     InheritFromSelf,
     InheritNonClass,
+    NotCallable,
+    TooManyArgs(Token),
 }
 
 impl fmt::Display for RloxError {
@@ -83,6 +86,17 @@ impl fmt::Display for RloxError {
                 "runtime error: Expected {} arguments but got {}.",
                 expected, actual
             ),
+            Self::NotCallable => write!(f, "runtime error: Can only call functions and classes."),
+            Self::PropertyAccessOnNonInstance => {
+                write!(f, "runtime error: Only instances have properties.")
+            }
+            Self::UndefinedProperty(s) => write!(f, "runtime error: Undefined property '{}'.", s),
+            Self::TooManyArgs(t) => write!(
+                f,
+                "Error at '{}': Cannot have more than {} parameters.",
+                t.lexeme, MAX_PARAMS
+            ),
+            Self::InheritNonClass => write!(f, "runtime error: Superclass must be a class."),
             // TODO: actually handle other errors
             _ => write!(f, "{:?}", self),
         }
@@ -430,7 +444,7 @@ impl LoxInstance {
             superclass = candidate.superclass;
         }
 
-        Err(RloxError::UndefinedProperty)
+        Err(RloxError::UndefinedProperty(name.to_owned()))
     }
 
     fn set(&mut self, name: &str, value: Object) {
@@ -461,7 +475,7 @@ impl fmt::Display for Object {
                 LoxCallable::Clock => write!(f, "<native fn>"),
                 LoxCallable::ClassDefinition(n) => write!(f, "{}", n),
                 LoxCallable::ClassInstance(n) => write!(f, "{}", n),
-                _ => unimplemented!(),
+                LoxCallable::UserDefined(n) => write!(f, "{}", n),
             },
         }
     }
@@ -496,6 +510,12 @@ pub struct FunctionStmt {
     this: Option<LoxInstance>,
     superclass: Option<LoxClass>,
     initializer: bool,
+}
+
+impl fmt::Display for FunctionStmt {
+    fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
+        write!(f, "<fn {}>", self.name.lexeme)
+    }
 }
 
 #[derive(Eq, Hash, Debug, PartialEq, Clone)]
@@ -548,7 +568,10 @@ mod tests {
 
             let instance = LoxInstance::new(class, None);
 
-            assert_eq!(Err(RloxError::UndefinedProperty), instance.get("bar"));
+            assert_eq!(
+                Err(RloxError::UndefinedProperty("bar".to_owned())),
+                instance.get("bar")
+            );
         }
 
         #[test]
@@ -571,9 +594,18 @@ mod tests {
 
             let instance = LoxInstance::new(class, None);
 
-            assert_eq!(Err(RloxError::UndefinedProperty), instance.get("foo"));
-            assert_eq!(Err(RloxError::UndefinedProperty), instance.get("bar"));
-            assert_eq!(Err(RloxError::UndefinedProperty), instance.get("baz"));
+            assert_eq!(
+                Err(RloxError::UndefinedProperty("foo".to_owned())),
+                instance.get("foo")
+            );
+            assert_eq!(
+                Err(RloxError::UndefinedProperty("bar".to_owned())),
+                instance.get("bar")
+            );
+            assert_eq!(
+                Err(RloxError::UndefinedProperty("baz".to_owned())),
+                instance.get("baz")
+            );
         }
 
         #[test]

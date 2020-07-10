@@ -379,8 +379,13 @@ impl Interpreter {
             Expr::Variable(token) => Ok(self.look_up_variable(&token.lexeme, expr)?),
             Expr::Call(callee, _, args) => {
                 let function = self.evaluate(callee).and_then(|fun| match fun {
-                    Object::Callable(c) => Ok(c),
-                    _ => unreachable!(),
+                    Object::Callable(c) => match c {
+                        LoxCallable::Clock
+                        | LoxCallable::UserDefined(_)
+                        | LoxCallable::ClassDefinition(_) => Ok(c),
+                        _ => Err(RloxError::NotCallable),
+                    },
+                    _ => Err(RloxError::NotCallable),
                 })?;
 
                 let mut arguments = Vec::with_capacity(args.len());
@@ -477,9 +482,9 @@ impl Interpreter {
                 // TODO Yikes. Maybe it's a good idea to store the instance name within the
                 // instance?
                 let instance_name = match &**object {
-                    Expr::Variable(t) | Expr::This(t) => &t.lexeme,
-                    _ => unreachable!(),
-                };
+                    Expr::Variable(t) | Expr::This(t) => Ok(&t.lexeme),
+                    _ => Err(RloxError::PropertyAccessOnNonInstance),
+                }?;
 
                 if let Object::Callable(LoxCallable::ClassInstance(mut instance)) =
                     self.evaluate(object)?

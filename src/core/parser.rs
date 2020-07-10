@@ -1,7 +1,9 @@
 use std::cell::Cell;
 use std::mem::discriminant;
 
-use super::{Expr, FunctionStmt, LoxCallable, Object, Result, RloxError, Stmt, Token, TokenType};
+use super::{
+    Expr, FunctionStmt, LoxCallable, Object, Result, RloxError, Stmt, Token, TokenType, MAX_PARAMS,
+};
 
 /// Parses a series of Tokens into an abstract syntax tree
 ///
@@ -104,9 +106,8 @@ impl Parser {
 
         if !self.check(TokenType::RightParen) {
             loop {
-                if parameters.len() >= 255 {
-                    // TODO define actual TooManyArgs err
-                    unimplemented!();
+                if parameters.len() >= MAX_PARAMS {
+                    return Err(RloxError::TooManyArgs(self.consume(TokenType::Identifier)?));
                 }
 
                 parameters.push(self.consume(TokenType::Identifier)?);
@@ -428,9 +429,9 @@ impl Parser {
 
         if !self.check(TokenType::RightParen) {
             loop {
-                if arguments.len() >= 255 {
+                if arguments.len() >= MAX_PARAMS {
                     // TODO: handle this case
-                    unimplemented!();
+                    return Err(RloxError::TooManyArgs(self.consume(TokenType::Identifier)?));
                 }
 
                 arguments.push(*self.expression()?);
