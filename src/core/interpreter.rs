@@ -407,13 +407,11 @@ impl Interpreter {
                         // The 'this' pointer needs to be defined in our parent environment.
                         if let Some(instance) = f.this {
                             Rc::get_mut(&mut self.environment)
-                                .and_then(|e| {
+                                .map(|e| {
                                     e.define(
                                         THIS.to_owned(),
                                         Object::Callable(LoxCallable::ClassInstance(instance)),
-                                    );
-
-                                    Some(())
+                                    )
                                 })
                                 .ok_or_else(|| unreachable!())?;
                         }
