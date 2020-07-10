@@ -8,7 +8,7 @@ use super::{
     INIT_METHOD,
 };
 
-const THIS: &'static str = "this";
+const THIS: &str = "this";
 const SUPER: &str = "super";
 
 /// Checks if an Rc is unique

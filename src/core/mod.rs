@@ -14,7 +14,7 @@ pub type Result<T> = result::Result<T, RloxError>;
 pub type Resolver = resolver::Resolver;
 pub type Scanner = scanner::Scanner;
 
-const INIT_METHOD: &'static str = "init";
+const INIT_METHOD: &str = "init";
 
 #[derive(Debug, PartialEq)]
 pub enum RloxError {
