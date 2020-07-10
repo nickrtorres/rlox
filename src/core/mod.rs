@@ -578,7 +578,7 @@ mod tests {
 
         #[test]
         fn it_can_walk_the_inheritance_tree() {
-            // Emulates an inheritance tree like
+            // Emulates the inheritance tree:
             //
             // class Base {
             //   f() {}
@@ -611,7 +611,7 @@ mod tests {
 
         #[test]
         fn it_can_walk_the_inheritance_tree_indirect() {
-            // Emulates an inheritance tree like
+            // Emulates the inheritance tree:
             //
             // class Base {
             //   f() {}
@@ -647,7 +647,7 @@ mod tests {
 
         #[test]
         fn it_can_walk_the_inheritance_tree_very_indirect() {
-            // Emulates an inheritance tree like
+            // Emulates the inheritance tree:
             //
             // class Base {
             //   f() {}
