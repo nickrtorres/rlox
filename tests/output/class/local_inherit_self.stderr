@@ -1,0 +1,1 @@
+rlox: Error at 'Foo': A class cannot inherit from itself.

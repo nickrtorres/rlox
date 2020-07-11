@@ -60,7 +60,7 @@ pub enum RloxError {
     ReturnValueFromConstructor,
     // expected, actual
     ArgumentMismatch(usize, usize),
-    InheritFromSelf,
+    InheritFromSelf(String),
     InheritNonClass,
     NotCallable,
     TooManyArgs(Token),
@@ -123,6 +123,10 @@ impl fmt::Display for RloxError {
                 actual.line, actual.lexeme, expected, previous.lexeme
             ),
             Self::UnterminatedString(l) => write!(f, "[line {}] Error: Unterminated string.", l),
+            Self::InvalidAssignment => write!(f, "Error at '=': Invalid assignment target."),
+            Self::InheritFromSelf(s) => {
+                write!(f, "Error at '{}': A class cannot inherit from itself.", s)
+            }
             // TODO: actually handle other errors
             _ => write!(f, "{:?}", self),
         }
@@ -344,8 +348,12 @@ impl Eq for Object {}
 impl Hash for Object {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
+            Self::Bool(b) => b.hash(state),
+            Self::Callable(c) => c.hash(state),
             Self::Number(f) => f.to_bits().hash(state),
-            other => other.hash(state),
+            Self::String(s) => s.hash(state),
+            Self::Time(t) => t.hash(state),
+            Self::Nil => self.hash(state),
         }
     }
 }

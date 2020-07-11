@@ -88,7 +88,7 @@ impl Resolver {
                 if let Some(s) = superclass {
                     if let Expr::Variable(ref token) = s {
                         if token.lexeme == name.lexeme {
-                            return Err(RloxError::InheritFromSelf);
+                            return Err(RloxError::InheritFromSelf(token.lexeme.to_owned()));
                         }
                         self.resolve_expression(s)?;
                     } else {

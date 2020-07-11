@@ -71,7 +71,15 @@ macro_rules! verify_rlox_program_err {
 // Assignment (ok)
 verify_rlox_program_ok! {"assignment", "associativity"}
 verify_rlox_program_ok! {"assignment", "global"}
+verify_rlox_program_ok! {"assignment", "local"}
 verify_rlox_program_ok! {"assignment", "syntax"}
+
+// Assignment (err)
+verify_rlox_program_err! {"assignment", "grouping"}
+verify_rlox_program_err! {"assignment", "infix_operator"}
+verify_rlox_program_err! {"assignment", "prefix_operator"}
+verify_rlox_program_err! {"assignment", "to_this"}
+verify_rlox_program_err! {"assignment", "undefined"}
 
 // Block (ok)
 verify_rlox_program_ok! {"block", "empty"}
@@ -90,6 +98,13 @@ verify_rlox_program_err! {"call", "string"}
 
 // Class (ok)
 verify_rlox_program_ok! {"class", "empty"}
+verify_rlox_program_ok! {"class", "inherited_method"}
+verify_rlox_program_ok! {"class", "local_inherit_other"}
+verify_rlox_program_ok! {"class", "reference_self"}
+
+// Class (err)
+verify_rlox_program_err! {"class", "inherit_self"}
+verify_rlox_program_err! {"class", "local_inherit_self"}
 
 // Comments (ok)
 verify_rlox_program_ok! {"comments", "line_at_eof"}
