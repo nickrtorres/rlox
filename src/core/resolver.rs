@@ -11,14 +11,19 @@ enum FunctionType {
     Initializer,
 }
 
+// TODO: maybe None should be replaced with Option<ClassType>
 #[derive(Clone, Copy)]
-struct ClassType;
+enum ClassType {
+    Class,
+    SubClass,
+    None,
+}
 
 pub struct Resolver {
     scopes: Stack<HashMap<String, bool>>,
     locals: HashMap<Expr, usize>,
     current_function: Option<FunctionType>,
-    current_class: Option<ClassType>,
+    current_class: ClassType,
 }
 
 impl Resolver {
@@ -27,7 +32,7 @@ impl Resolver {
             scopes: Stack::new(),
             locals: HashMap::new(),
             current_function: None,
-            current_class: None,
+            current_class: ClassType::None,
         }
     }
 
@@ -52,9 +57,16 @@ impl Resolver {
             }
             Stmt::Class(name, superclass, methods) => {
                 let enclosing = self.current_class;
-                self.current_class = Some(ClassType);
+                self.current_class = ClassType::Class;
                 self.declare(name)?;
                 self.define(name);
+
+                // We need superclass in a lower environment but, for resolving
+                // to work, we need to set our state before we define our
+                // superclass.
+                if superclass.is_some() {
+                    self.current_class = ClassType::SubClass;
+                }
 
                 self.begin_scope();
                 self.scopes
@@ -184,13 +196,21 @@ impl Resolver {
                 self.resolve_expression(value)?;
             }
             Expr::This(token) => {
-                if self.current_class.is_none() {
+                if let ClassType::None = self.current_class {
                     return Err(RloxError::ThisOutsideOfClass);
                 }
 
                 self.resolve_local(expr, token)?;
             }
-            Expr::Super(keyword, _) => self.resolve_local(expr, keyword)?,
+            Expr::Super(keyword, _) => match self.current_class {
+                ClassType::None => {
+                    return Err(RloxError::SuperOutsideOfClass(keyword.clone()));
+                }
+                ClassType::Class => {
+                    return Err(RloxError::SuperWithoutParent(keyword.clone()));
+                }
+                ClassType::SubClass => self.resolve_local(expr, keyword)?,
+            },
         }
 
         Ok(())

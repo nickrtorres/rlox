@@ -189,6 +189,7 @@ verify_rlox_program_ok! {"super", "indirectly_inherited"}
 verify_rlox_program_err! {"super", "extra_arguments"}
 verify_rlox_program_err! {"super", "missing_arguments"}
 verify_rlox_program_err! {"super", "no_superclass_method"}
+verify_rlox_program_err! {"super", "no_superclass_bind"}
 
 // This (ok)
 verify_rlox_program_ok! {"this", "this_in_method"}

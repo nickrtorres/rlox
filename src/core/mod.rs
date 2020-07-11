@@ -66,6 +66,8 @@ pub enum RloxError {
     TooManyArgs(Token),
     ExpectedExpression(Token),
     ExpectedVarName(Token),
+    SuperOutsideOfClass(Token),
+    SuperWithoutParent(Token),
 }
 
 impl fmt::Display for RloxError {
@@ -102,6 +104,16 @@ impl fmt::Display for RloxError {
             Self::ExpectedExpression(t) => write!(f, "Error at '{}': Expect expression.", t.lexeme),
             Self::ExpectedVarName(t) => write!(f, "Error at '{}': Expect variable name.", t.lexeme),
             Self::UndefinedVariable(s) => write!(f, "runtime error: Undefined variable '{}'.", s),
+            Self::SuperOutsideOfClass(t) => write!(
+                f,
+                "Error at '{}': Cannot use '{}' outside of a class.",
+                t.lexeme, t.lexeme
+            ),
+            Self::SuperWithoutParent(t) => write!(
+                f,
+                "Error at '{}': Cannot use '{}' in a class with no superclass.",
+                t.lexeme, t.lexeme,
+            ),
             // TODO: actually handle other errors
             _ => write!(f, "{:?}", self),
         }
