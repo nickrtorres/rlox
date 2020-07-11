@@ -176,6 +176,14 @@ verify_rlox_program_err! {"method", "too_many_parameters"}
 // Nil (ok)
 verify_rlox_program_ok! {"nil", "literal"}
 
+// Return (ok)
+verify_rlox_program_ok! {"return", "after_else"}
+verify_rlox_program_ok! {"return", "after_if"}
+verify_rlox_program_ok! {"return", "after_while"}
+verify_rlox_program_ok! {"return", "in_function"}
+verify_rlox_program_ok! {"return", "in_method"}
+verify_rlox_program_ok! {"return", "return_nil_if_no_value"}
+
 // Return (err)
 verify_rlox_program_err! {"return", "at_top_level"}
 
