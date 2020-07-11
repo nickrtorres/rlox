@@ -170,6 +170,14 @@ verify_rlox_program_ok! {"if", "dangling_else"}
 verify_rlox_program_ok! {"if", "else"}
 verify_rlox_program_ok! {"if", "if"}
 
+// If (err)
+verify_rlox_program_err! {"if", "class_in_else"}
+verify_rlox_program_err! {"if", "class_in_then"}
+verify_rlox_program_err! {"if", "fun_in_else"}
+verify_rlox_program_err! {"if", "fun_in_then"}
+verify_rlox_program_err! {"if", "var_in_else"}
+verify_rlox_program_err! {"if", "var_in_then"}
+
 // Inheritance (ok)
 verify_rlox_program_ok! {"inheritance", "constructor"}
 verify_rlox_program_ok! {"inheritance", "inherit_methods"}
