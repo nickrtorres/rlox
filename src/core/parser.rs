@@ -589,7 +589,7 @@ mod tests {
     #[test]
     fn it_can_advance_over_token_iterator() {
         let scanner = Scanner::new("var breakfast;".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
 
         assert_eq!(
             Some(Token::new(TokenType::Var, String::from("var"), 1)),
@@ -617,7 +617,7 @@ mod tests {
     #[test]
     fn it_can_parse_a_float() {
         let scanner = Scanner::new("1".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         assert_eq!(
             Expr::Literal(Object::Number(1 as f64)),
             *parser.parse().unwrap()
@@ -627,21 +627,21 @@ mod tests {
     #[test]
     fn it_can_parse_a_bool() {
         let scanner = Scanner::new("true".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         assert_eq!(Expr::Literal(Object::Bool(true)), *parser.parse().unwrap());
     }
 
     #[test]
     fn it_can_parse_nil() {
         let scanner = Scanner::new("nil".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         assert_eq!(Expr::Literal(Object::Nil), *parser.parse().unwrap());
     }
 
     #[test]
     fn it_can_parse_a_unary_expression() {
         let scanner = Scanner::new("-1".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         assert_eq!(
             Expr::Unary(
                 Token::new(TokenType::Minus, "-".to_owned(), 1),
@@ -654,7 +654,7 @@ mod tests {
     #[test]
     fn it_can_parse_a_binary_expression() {
         let scanner = Scanner::new("1 + 2".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         assert_eq!(
             Expr::Binary(
                 Box::new(Expr::Literal(Object::Number(1 as f64))),
@@ -668,7 +668,7 @@ mod tests {
     #[test]
     fn it_can_parse_a_grouping_expression() {
         let scanner = Scanner::new("(1)".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         assert_eq!(
             Expr::Grouping(Box::new(Expr::Literal(Object::Number(1 as f64)))),
             *parser.parse().unwrap()
@@ -678,7 +678,7 @@ mod tests {
     #[test]
     fn it_can_parse_a_compound_expression() {
         let scanner = Scanner::new("(1 + 2) * 3".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
 
         let plus = Token::new(TokenType::Plus, "+".to_owned(), 1);
         let add_expr = Expr::Grouping(Box::new(Expr::Binary(
@@ -700,7 +700,7 @@ mod tests {
     #[test]
     fn it_can_parse_an_arbitrarily_complex_expression() {
         let scanner = Scanner::new("(1 + 2) * 3 > (4 - 5) / 6".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
 
         let plus = Token::new(TokenType::Plus, "+".to_owned(), 1);
         let add_expr = Expr::Grouping(Box::new(Expr::Binary(
@@ -739,35 +739,35 @@ mod tests {
     #[test]
     fn it_detects_unclosed_parenthesis() {
         let scanner = Scanner::new("(1".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         assert_eq!(Err(RloxError::UnclosedParenthesis(1)), parser.parse());
     }
 
     #[test]
     fn it_can_parse_a_stmt() {
         let scanner = Scanner::new("var a = true;".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         assert!(parser.parse_stmts().is_ok());
     }
 
     #[test]
     fn it_can_parse_a_block() {
         let scanner = Scanner::new("{ print \"hello\"; }".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         assert!(parser.parse_stmts().is_ok())
     }
 
     #[test]
     fn it_can_parse_a_nested_block() {
         let scanner = Scanner::new("{ { print \"hello\"; } }".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         assert!(parser.parse_stmts().is_ok())
     }
 
     #[test]
     fn it_can_parse_a_function() {
         let scanner = Scanner::new("fun a () { print \"hello\"; }".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         assert!(parser.parse_stmts().is_ok())
     }
 }

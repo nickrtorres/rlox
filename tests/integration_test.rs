@@ -179,6 +179,14 @@ verify_rlox_program_ok! {"nil", "literal"}
 // Return (err)
 verify_rlox_program_err! {"return", "at_top_level"}
 
+// String (ok)
+verify_rlox_program_ok! {"string", "literals"}
+verify_rlox_program_ok! {"string", "multiline"}
+
+// String (err)
+verify_rlox_program_err! {"string", "error_after_multiline"}
+verify_rlox_program_err! {"string", "unterminated"}
+
 // Super (ok)
 verify_rlox_program_ok! {"super", "bound_method"}
 verify_rlox_program_ok! {"super", "call_other_method"}

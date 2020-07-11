@@ -70,6 +70,7 @@ pub enum RloxError {
     SuperWithoutParent(Token),
     // expected, actual, previous
     UnexpectedToken(String, Token, Token),
+    UnterminatedString(usize),
 }
 
 impl fmt::Display for RloxError {
@@ -121,6 +122,7 @@ impl fmt::Display for RloxError {
                 "[line {}] Error at '{}': Expect '{}' after '{}'.",
                 actual.line, actual.lexeme, expected, previous.lexeme
             ),
+            Self::UnterminatedString(l) => write!(f, "[line {}] Error: Unterminated string.", l),
             // TODO: actually handle other errors
             _ => write!(f, "{:?}", self),
         }

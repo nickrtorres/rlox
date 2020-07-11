@@ -558,7 +558,7 @@ mod tests {
     #[test]
     fn it_can_evaluate_a_unary_expression() {
         let scanner = Scanner::new("-1".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         let expr = parser.parse().unwrap();
         let mut interpreter = Interpreter::new();
         assert_eq!(
@@ -570,7 +570,7 @@ mod tests {
     #[test]
     fn it_can_evaluate_a_literal_expression() {
         let scanner = Scanner::new("true".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         let expr = parser.parse().unwrap();
         let mut interpreter = Interpreter::new();
         assert_eq!(Ok(Object::Bool(true)), interpreter.evaluate(&expr));
@@ -579,7 +579,7 @@ mod tests {
     #[test]
     fn it_can_evaluate_a_literal_expression_nil() {
         let scanner = Scanner::new("nil".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(Ok(Object::Nil), interpreter.evaluate(&expr));
@@ -588,7 +588,7 @@ mod tests {
     #[test]
     fn it_can_evaluate_a_binary_expression_mult() {
         let scanner = Scanner::new("6 * 7".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(
@@ -600,7 +600,7 @@ mod tests {
     #[test]
     fn it_can_evaluate_a_binary_expression_div() {
         let scanner = Scanner::new("8 / 4".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(
@@ -612,7 +612,7 @@ mod tests {
     #[test]
     fn it_can_evaluate_a_binary_expression_complex_notequal() {
         let scanner = Scanner::new("2 * 3 - 4 != 5 * 6 - 7".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(Ok(Object::Bool(true)), interpreter.evaluate(&expr));
@@ -621,7 +621,7 @@ mod tests {
     #[test]
     fn it_can_evaluate_a_binary_expression_complex_equal() {
         let scanner = Scanner::new("(4 + 4) == (2 * 2 * 2)".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(Ok(Object::Bool(true)), interpreter.evaluate(&expr));
@@ -630,7 +630,7 @@ mod tests {
     #[test]
     fn it_can_evaluate_string_concatenation() {
         let scanner = Scanner::new("\"foo\" + \"bar\"".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(
@@ -642,7 +642,7 @@ mod tests {
     #[test]
     fn it_identifies_mismatched_operands_plus() {
         let scanner = Scanner::new("1 + \"foo\"".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(
@@ -658,7 +658,7 @@ mod tests {
     #[test]
     fn it_identifies_mismatched_operands_minus() {
         let scanner = Scanner::new("1 - \"bar\"".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(
@@ -674,7 +674,7 @@ mod tests {
     #[test]
     fn it_identifies_mismatched_operands_star() {
         let scanner = Scanner::new("true * 1".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(
@@ -690,7 +690,7 @@ mod tests {
     #[test]
     fn it_identifies_mismatched_operands_slash() {
         let scanner = Scanner::new("1 / nil".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         let mut interpreter = Interpreter::new();
         let expr = parser.parse().unwrap();
         assert_eq!(
@@ -706,7 +706,7 @@ mod tests {
     #[test]
     fn it_recognizes_valid_statements_print_arithmetic() {
         let scanner = Scanner::new("print 1 + 1;".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         let mut statements = parser.parse_stmts().unwrap();
         let mut interpreter = Interpreter::new();
         assert_eq!(statements.len(), 1);
@@ -720,7 +720,7 @@ mod tests {
     #[test]
     fn it_recognizes_valid_statements_print_boolean() {
         let scanner = Scanner::new("print true;".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         let mut statements = parser.parse_stmts().unwrap();
         let mut interpreter = Interpreter::new();
         assert_eq!(statements.len(), 1);
@@ -734,7 +734,7 @@ mod tests {
     #[test]
     fn it_recognizes_valid_statements_print_string() {
         let scanner = Scanner::new("print \"foo\";".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         let mut statements = parser.parse_stmts().unwrap();
         let mut interpreter = Interpreter::new();
         assert_eq!(statements.len(), 1);
@@ -748,7 +748,7 @@ mod tests {
     #[test]
     fn it_recognizes_valid_statements_print_nil() {
         let scanner = Scanner::new("print nil;".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         let mut statements = parser.parse_stmts().unwrap();
         let mut interpreter = Interpreter::new();
         assert_eq!(statements.len(), 1);
@@ -762,7 +762,7 @@ mod tests {
     #[test]
     fn it_recognizes_valid_statements_expression_arithmetic() {
         let scanner = Scanner::new("1 + 1;".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         let mut statements = parser.parse_stmts().unwrap();
         let mut interpreter = Interpreter::new();
         assert_eq!(statements.len(), 1);
@@ -776,7 +776,7 @@ mod tests {
     #[test]
     fn it_recognizes_valid_statements_expression_boolean() {
         let scanner = Scanner::new("true;".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         let mut statements = parser.parse_stmts().unwrap();
         let mut interpreter = Interpreter::new();
 
@@ -791,7 +791,7 @@ mod tests {
     #[test]
     fn it_recognizes_valid_statements_expression_string() {
         let scanner = Scanner::new("\"foo\";".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         let mut statements = parser.parse_stmts().unwrap();
         let mut interpreter = Interpreter::new();
 
@@ -806,7 +806,7 @@ mod tests {
     #[test]
     fn it_recognizes_valid_statements_expression_nil() {
         let scanner = Scanner::new("nil;".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         let mut statements = parser.parse_stmts().unwrap();
         let mut interpreter = Interpreter::new();
 
@@ -821,14 +821,14 @@ mod tests {
     #[test]
     fn it_recognizes_invalid_statements_missing_semicolon() {
         let scanner = Scanner::new("print nil".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         assert_eq!(Err(RloxError::MissingSemicolon(1)), parser.parse_stmts());
     }
 
     #[test]
     fn it_supports_reassignment_block() {
         let scanner = Scanner::new("var a = 1; { a = 2; } print a;".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         let mut vec_stmts = parser.parse_stmts().unwrap();
         let mut stmts = vec_stmts.drain(..);
         let mut interpreter = Interpreter::new();
@@ -842,7 +842,7 @@ mod tests {
                         "var a = \"foo\"; { var b = \"bar\"; { var c = \"baz\"; print a + b + c; } print a + b; } print a;"
                             .to_owned(),
                     );
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         let mut vec_stmts = parser.parse_stmts().unwrap();
         let mut stmts = vec_stmts.drain(..);
         let mut interpreter = Interpreter::new();
@@ -853,7 +853,7 @@ mod tests {
     #[test]
     fn it_supports_empty_fun() {
         let scanner = Scanner::new("fun f() {}".to_owned());
-        let parser = Parser::new(scanner.scan_tokens());
+        let parser = Parser::new(scanner.scan_tokens().unwrap());
         let mut vec_stmts = parser.parse_stmts().unwrap();
         let mut stmts = vec_stmts.drain(..);
         let mut interpreter = Interpreter::new();

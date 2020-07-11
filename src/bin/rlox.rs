@@ -14,7 +14,7 @@ type Result<T> = result::Result<T, Error>;
 
 fn run(buf: String, interpreter: &mut Interpreter) -> Result<()> {
     let scanner = Scanner::new(buf);
-    let parser = Parser::new(scanner.scan_tokens());
+    let parser = Parser::new(scanner.scan_tokens()?);
     let mut statements = parser.parse_stmts()?;
 
     let mut resolver = Resolver::new();

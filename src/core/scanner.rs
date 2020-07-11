@@ -2,7 +2,7 @@ use std::iter::Peekable;
 
 use owned_chars::OwnedChars;
 
-use super::{Token, TokenType};
+use super::{Result, RloxError, Token, TokenType};
 
 pub struct Scanner {
     // Scratch pad for Tokens
@@ -33,26 +33,26 @@ impl Scanner {
     }
 
     /// Returns the list of Tokens owned by self
-    pub fn scan_tokens<'s>(mut self) -> Vec<Token> {
+    pub fn scan_tokens<'s>(mut self) -> Result<Vec<Token>> {
         while !self.is_at_end() {
-            self.scan_token();
+            self.scan_token()?;
             self.scratch.clear();
         }
 
         self.tokens
             .push(Token::new(TokenType::Eof, String::new(), self.line));
 
-        self.tokens
+        Ok(self.tokens)
     }
 
     fn is_at_end(&mut self) -> bool {
         self.chars.peek().is_none()
     }
 
-    fn scan_token(&mut self) {
+    fn scan_token(&mut self) -> Result<()> {
         let c = match self.advance() {
             Some(c) => c,
-            None => return,
+            None => return Ok(()),
         };
 
         match c {
@@ -86,7 +86,7 @@ impl Scanner {
                 }
             }
             '\n' => self.line += 1,
-            '"' => self.string(),
+            '"' => self.string()?,
             c => {
                 if Scanner::is_digit(Some(c)) {
                     self.number();
@@ -97,6 +97,8 @@ impl Scanner {
                 }
             }
         };
+
+        Ok(())
     }
 
     // this method has weird semantics. it feels like the right abstraction but
@@ -153,24 +155,28 @@ impl Scanner {
         self.chars.peek().copied()
     }
 
-    fn string(&mut self) {
+    fn string(&mut self) -> Result<()> {
         while let Some(s) = self.advance() {
             if s == '"' {
                 break;
             }
         }
 
-        // panic: unwrapping should be safe as someone earlier
-        // should catch an unterminated "
-        debug_assert!(self.scratch.starts_with('\"'));
-        debug_assert!(self.scratch.ends_with('\"'));
+        // It should be impossible to get here if the string does not start with a \"
+        assert!(self.scratch.starts_with("\""));
         let value = self
             .scratch
-            .strip_suffix("\"")
-            .and_then(|s| s.strip_prefix("\""))
-            .unwrap()
-            .to_string();
-        self.add_token(TokenType::String(value));
+            .strip_prefix("\"")
+            .expect("String does not start with \"!")
+            .to_owned();
+
+        self.add_token(TokenType::String(String::from(
+            value
+                .strip_suffix("\"")
+                .ok_or(RloxError::UnterminatedString(self.line))?,
+        )));
+
+        Ok(())
     }
 
     fn advance(&mut self) -> Option<char> {
@@ -193,7 +199,7 @@ mod tests {
     #[test]
     fn it_can_scan_a_boolean_token() {
         let mut scanner = Scanner::new("true".to_owned());
-        scanner.scan_token();
+        let _ = scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
     }
 
@@ -201,7 +207,7 @@ mod tests {
     #[test]
     fn it_can_scan_a_reserved_word() {
         let mut scanner = Scanner::new("return".to_owned());
-        scanner.scan_token();
+        let _ = scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
 
         let t = scanner.tokens.first();
@@ -212,7 +218,7 @@ mod tests {
     #[test]
     fn it_can_scan_a_non_reserved_word() {
         let mut scanner = Scanner::new("foobar".to_owned());
-        scanner.scan_token();
+        let _ = scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
 
         let t = scanner.tokens.first();
@@ -224,7 +230,7 @@ mod tests {
     #[test]
     fn it_can_scan_a_single_character_token() {
         let mut scanner = Scanner::new("(".to_owned());
-        scanner.scan_token();
+        let _ = scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
 
         let t = scanner.tokens.first();
@@ -236,7 +242,7 @@ mod tests {
     #[test]
     fn it_can_scan_a_dual_character_token() {
         let mut scanner = Scanner::new("!=".to_owned());
-        scanner.scan_token();
+        let _ = scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
 
         let t = scanner.tokens.first();
@@ -247,14 +253,14 @@ mod tests {
     #[test]
     fn it_ignores_comments() {
         let mut scanner = Scanner::new("//".to_owned());
-        scanner.scan_token();
+        let _ = scanner.scan_token();
         assert_eq!(0, scanner.tokens.len());
     }
 
     #[test]
     fn it_scans_literal_slashes() {
         let mut scanner = Scanner::new("/".to_owned());
-        scanner.scan_token();
+        let _ = scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
 
         let t = scanner.tokens.first();
@@ -266,7 +272,7 @@ mod tests {
     fn it_increments_linecount() {
         let mut scanner = Scanner::new("\n".to_owned());
         let line = scanner.line;
-        scanner.scan_token();
+        let _ = scanner.scan_token();
         assert_eq!(line + 1, scanner.line);
     }
 
@@ -274,14 +280,14 @@ mod tests {
     #[test]
     fn it_ignores_dont_care_tokens() {
         let mut scanner = Scanner::new("\t".to_owned());
-        scanner.scan_token();
+        let _ = scanner.scan_token();
         assert_eq!(0, scanner.tokens.len());
     }
 
     #[test]
     fn it_can_scan_string_literals() {
         let mut scanner = Scanner::new("\"foo\"".to_owned());
-        scanner.scan_token();
+        let _ = scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
 
         let t = scanner.tokens.first();
@@ -296,7 +302,7 @@ mod tests {
     #[test]
     fn it_can_scan_integers() {
         let mut scanner = Scanner::new("42".to_owned());
-        scanner.scan_token();
+        let _ = scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
 
         let t = scanner.tokens.first();
@@ -307,7 +313,7 @@ mod tests {
     #[test]
     fn it_can_scan_floating_point_numbers() {
         let mut scanner = Scanner::new("3.14".to_owned());
-        scanner.scan_token();
+        let _ = scanner.scan_token();
         assert_eq!(1, scanner.tokens.len());
 
         let t = scanner.tokens.first();
@@ -318,7 +324,7 @@ mod tests {
     #[test]
     fn it_can_scan_numerous_tokens_expression() {
         let scanner = Scanner::new("var breakfast;".to_owned());
-        let actual = scanner.scan_tokens();
+        let actual = scanner.scan_tokens().unwrap();
         // 'var' , 'breakfast' , ';' , 'EOF'
         assert_eq!(4, actual.len());
 
@@ -337,7 +343,7 @@ mod tests {
     #[test]
     fn it_can_scan_numerous_tokens_assignment() {
         let scanner = Scanner::new("var breakfast = \"bagels\";".to_owned());
-        let actual = scanner.scan_tokens();
+        let actual = scanner.scan_tokens().unwrap();
         // 'var' , 'breakfast' , '=' , 'bagels' , ';' , 'EOF'
         assert_eq!(6, actual.len());
 
@@ -364,7 +370,7 @@ mod tests {
         let scanner = Scanner::new(
             "if (condition) {\n  print \"yes\";\n} else {\n  print \"no\";\n}\n".to_owned(),
         );
-        let actual = scanner.scan_tokens();
+        let actual = scanner.scan_tokens().unwrap();
         // 'if' , '(' , 'condition' , ')' , '{' , 'print' , 'yes' , ';' , '}' , 'else' , '{' ,
         // 'print' , 'no' , ';' , '}' , 'EOF'
         assert_eq!(16, actual.len());
