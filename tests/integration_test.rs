@@ -174,6 +174,12 @@ verify_rlox_program_ok! {"if", "if"}
 verify_rlox_program_ok! {"inheritance", "constructor"}
 verify_rlox_program_ok! {"inheritance", "inherit_methods"}
 
+// Inheritance (err)
+verify_rlox_program_err! {"inheritance", "inherit_from_function"}
+verify_rlox_program_err! {"inheritance", "inherit_from_nil"}
+verify_rlox_program_err! {"inheritance", "inherit_from_number"}
+verify_rlox_program_err! {"inheritance", "parenthesized_superclass"}
+
 // Logical operator (ok)
 verify_rlox_program_ok! {"logical_operator", "and"}
 

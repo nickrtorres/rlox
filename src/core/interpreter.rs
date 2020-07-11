@@ -160,14 +160,9 @@ impl Interpreter {
             Stmt::Class(name, superclass, methods) => {
                 let superclass: Option<Box<LoxClass>> = if let Some(s) = superclass {
                     if let Object::Callable(LoxCallable::ClassDefinition(s)) = self.evaluate(s)? {
-                        if s.name == name.lexeme {
-                            // placeholder
-                            return Err(RloxError::InheritNonClass);
-                        }
                         Some(Box::new(s))
                     } else {
-                        // TODO valid state?
-                        None
+                        return Err(RloxError::InheritNonClass);
                     }
                 } else {
                     None

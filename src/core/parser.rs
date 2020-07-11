@@ -508,6 +508,8 @@ impl Parser {
             match expected {
                 TokenType::RightParen => return Err(RloxError::UnclosedParenthesis(actual.line)),
                 TokenType::Semicolon => return Err(RloxError::MissingSemicolon(actual.line)),
+                // TODO: this should split into an additional case the can tell whether or not
+                // this is for inheritance
                 TokenType::Identifier => return Err(RloxError::ExpectedVarName(actual)),
                 _ => {
                     // At this point, our internal cursor looks something like:
