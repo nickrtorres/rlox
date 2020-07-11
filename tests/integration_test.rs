@@ -180,18 +180,24 @@ verify_rlox_program_ok! {"nil", "literal"}
 verify_rlox_program_err! {"return", "at_top_level"}
 
 // Super (ok)
+verify_rlox_program_ok! {"super", "bound_method"}
 verify_rlox_program_ok! {"super", "call_other_method"}
 verify_rlox_program_ok! {"super", "call_same_method"}
 verify_rlox_program_ok! {"super", "constructor"}
 verify_rlox_program_ok! {"super", "indirectly_inherited"}
-verify_rlox_program_ok! {"super", "bound_method"}
+verify_rlox_program_ok! {"super", "reassign_superclass"}
 
 // Super (err)
 verify_rlox_program_err! {"super", "extra_arguments"}
 verify_rlox_program_err! {"super", "missing_arguments"}
-verify_rlox_program_err! {"super", "no_superclass_method"}
 verify_rlox_program_err! {"super", "no_superclass_bind"}
+verify_rlox_program_err! {"super", "no_superclass_method"}
 verify_rlox_program_err! {"super", "parenthesized"}
+verify_rlox_program_err! {"super", "super_at_top_level"}
+verify_rlox_program_err! {"super", "super_in_top_level_function"}
+verify_rlox_program_err! {"super", "super_without_dot"}
+verify_rlox_program_err! {"super", "super_without_name"}
+verify_rlox_program_err! {"super", "no_superclass_call"}
 
 // This (ok)
 verify_rlox_program_ok! {"this", "this_in_method"}
