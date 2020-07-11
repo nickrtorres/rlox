@@ -217,6 +217,9 @@ verify_rlox_program_err! {"method", "too_many_parameters"}
 // Nil (ok)
 verify_rlox_program_ok! {"nil", "literal"}
 
+// Print (err)
+verify_rlox_program_err! {"print", "missing_argument"}
+
 // Return (ok)
 verify_rlox_program_ok! {"return", "after_else"}
 verify_rlox_program_ok! {"return", "after_if"}
