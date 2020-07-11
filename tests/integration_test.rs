@@ -184,6 +184,7 @@ verify_rlox_program_ok! {"super", "call_other_method"}
 verify_rlox_program_ok! {"super", "call_same_method"}
 verify_rlox_program_ok! {"super", "constructor"}
 verify_rlox_program_ok! {"super", "indirectly_inherited"}
+verify_rlox_program_ok! {"super", "bound_method"}
 
 // Super (err)
 verify_rlox_program_err! {"super", "extra_arguments"}
@@ -220,6 +221,7 @@ verify_rlox_program_err! {"variable", "undefined_local"}
 verify_rlox_program_err! {"variable", "use_false_as_var"}
 verify_rlox_program_err! {"variable", "use_nil_as_var"}
 verify_rlox_program_err! {"variable", "use_this_as_var"}
+verify_rlox_program_err! {"variable", "undefined_global"}
 
 // While (ok)
 verify_rlox_program_ok! {"while", "return_inside"}
