@@ -151,6 +151,17 @@ verify_rlox_program_err! {"field", "set_on_num"}
 verify_rlox_program_err! {"field", "set_on_string"}
 verify_rlox_program_err! {"field", "undefined"}
 
+// For (ok)
+verify_rlox_program_ok! {"for", "return_inside"}
+
+// For (err)
+verify_rlox_program_err! {"for", "class_in_body"}
+verify_rlox_program_err! {"for", "fun_in_body"}
+verify_rlox_program_err! {"for", "var_in_body"}
+verify_rlox_program_err! {"for", "statement_initializer"}
+verify_rlox_program_err! {"for", "statement_condition"}
+verify_rlox_program_err! {"for", "statement_increment"}
+
 // Function (ok)
 verify_rlox_program_ok! {"function", "empty_body"}
 verify_rlox_program_ok! {"function", "local_recursion"}
