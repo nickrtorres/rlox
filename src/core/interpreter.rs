@@ -57,7 +57,7 @@ impl Environment {
                     return e.get(name);
                 }
 
-                Err(RloxError::UndefinedVariable)
+                Err(RloxError::UndefinedVariable(name.to_owned()))
             }
         }
     }
@@ -72,7 +72,7 @@ impl Environment {
                         .and_then(|nested| nested.assign(name, value));
                 }
 
-                Err(RloxError::UndefinedVariable)
+                Err(RloxError::UndefinedVariable(name.to_owned()))
             }
             Entry::Occupied(mut e) => {
                 e.insert(value);
@@ -94,7 +94,7 @@ impl Environment {
     fn get_at(&self, distance: usize, name: &str) -> Result<Object> {
         self.ancestor(distance, |values| {
             values
-                .ok_or(RloxError::UndefinedVariable)
+                .ok_or(RloxError::UndefinedVariable(name.to_owned()))
                 .and_then(|e| e.get(name))
         })
     }
@@ -212,7 +212,7 @@ impl Interpreter {
                         // instance.
                         match self.environment.get(THIS) {
                             Ok(t) => t,
-                            Err(RloxError::UndefinedVariable) => {
+                            Err(RloxError::UndefinedVariable(_)) => {
                                 Object::Callable(LoxCallable::ClassInstance(c))
                             }
                             _ => unreachable!(),
@@ -223,6 +223,11 @@ impl Interpreter {
 
                 Rc::get_mut(&mut self.environment)
                     .map(|e| e.define(token.lexeme.clone(), value))
+                    .ok_or_else(|| unreachable!())?;
+            }
+            Stmt::Var(token, None) => {
+                Rc::get_mut(&mut self.environment)
+                    .map(|e| e.define(token.lexeme.clone(), Object::Nil))
                     .ok_or_else(|| unreachable!())?;
             }
             Stmt::While(condition, stmt) => {
@@ -249,7 +254,6 @@ impl Interpreter {
 
                 return Err(RloxError::Return(v));
             }
-            _ => {}
         }
 
         Ok(())

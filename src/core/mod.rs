@@ -43,7 +43,7 @@ pub enum RloxError {
     /// The statement entered is missing a semicolon
     MissingSemicolon(usize),
     /// A non existent variable was queried
-    UndefinedVariable,
+    UndefinedVariable(String),
     /// An invalid assignment was attempted
     InvalidAssignment,
     /// An attempt was made to mutate a non unique Rc ptr
@@ -101,6 +101,7 @@ impl fmt::Display for RloxError {
             Self::InheritNonClass => write!(f, "runtime error: Superclass must be a class."),
             Self::ExpectedExpression(t) => write!(f, "Error at '{}': Expect expression.", t.lexeme),
             Self::ExpectedVarName(t) => write!(f, "Error at '{}': Expect variable name.", t.lexeme),
+            Self::UndefinedVariable(s) => write!(f, "runtime error: Undefined variable '{}'.", s),
             // TODO: actually handle other errors
             _ => write!(f, "{:?}", self),
         }

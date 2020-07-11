@@ -207,6 +207,7 @@ verify_rlox_program_ok! {"variable", "scope_reuse_in_different_blocks"}
 verify_rlox_program_ok! {"variable", "shadow_and_local"}
 verify_rlox_program_ok! {"variable", "shadow_global"}
 verify_rlox_program_ok! {"variable", "shadow_local"}
+verify_rlox_program_ok! {"variable", "uninitialized"}
 verify_rlox_program_ok! {"variable", "unreached_undefined"}
 verify_rlox_program_ok! {"variable", "use_global_in_initializer"}
 
@@ -214,6 +215,7 @@ verify_rlox_program_ok! {"variable", "use_global_in_initializer"}
 verify_rlox_program_err! {"variable", "collide_with_parameter"}
 verify_rlox_program_err! {"variable", "duplicate_local"}
 verify_rlox_program_err! {"variable", "duplicate_parameter"}
+verify_rlox_program_err! {"variable", "undefined_local"}
 verify_rlox_program_err! {"variable", "use_false_as_var"}
 verify_rlox_program_err! {"variable", "use_nil_as_var"}
 verify_rlox_program_err! {"variable", "use_this_as_var"}
