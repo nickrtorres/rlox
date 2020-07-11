@@ -18,12 +18,15 @@ def fail_if_fnf(path):
         sys.exit(1)
 
 
-def write_out(out='', category='', name='', ext=''):
+def write_out(out='', category='', name='', ext='', echo=False):
     '''Writes 'out' to a stdout or stderr file. This truncates any existing file.'''
     test_out = f'tests/output/{category}/{name}.{ext}'
     fail_if_fnf('/'.join(test_out.split('/')[0:3]))
     with open(test_out, 'wb') as handle:
         handle.write(out)
+
+    if echo:
+        print(test_out)
 
 
 if __name__ == '__main__':
@@ -32,6 +35,7 @@ if __name__ == '__main__':
     parser.add_argument('--type', '-t', dest='type', required=True)
     parser.add_argument('--category', '-c', dest='category', required=True)
     parser.add_argument('--name', '-n', dest='name', required=True)
+    parser.add_argument('--echo', '-e', action='store_true', required=False)
     args = parser.parse_args()
 
     test = f'tests/lox/{args.category}/{args.name}.lox'
@@ -51,7 +55,8 @@ if __name__ == '__main__':
         write_out(out=err.stderr,
                   category=args.category,
                   name=args.name,
-                  ext='stderr')
+                  ext='stderr',
+                  echo=args.echo)
     except AssertionError:
         print(
             f'{sys.argv[0]}: error: specified type ({args.type}) but process exited normally'
@@ -61,4 +66,5 @@ if __name__ == '__main__':
         write_out(out=stdout,
                   category=args.category,
                   name=args.name,
-                  ext='stdout')
+                  ext='stdout',
+                  echo=args.echo)
