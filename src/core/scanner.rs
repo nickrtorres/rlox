@@ -79,6 +79,8 @@ impl Scanner {
                             Some(_) => {}
                         }
                     }
+
+                    self.line += 1;
                 } else {
                     self.add_token(TokenType::Slash);
                 }

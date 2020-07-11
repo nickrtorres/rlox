@@ -501,15 +501,28 @@ impl Parser {
         )?))
     }
 
-    fn consume(&self, token_type: TokenType) -> Result<Token> {
-        if !self.check(token_type.clone()) {
-            let token = self.advance().ok_or_else(|| unreachable!())?;
+    fn consume(&self, expected: TokenType) -> Result<Token> {
+        if !self.check(expected.clone()) {
+            let actual = self.peek().ok_or_else(|| unreachable!())?.clone();
 
-            match token_type {
-                TokenType::RightParen => return Err(RloxError::UnclosedParenthesis(token.line)),
-                TokenType::Semicolon => return Err(RloxError::MissingSemicolon(token.line)),
-                TokenType::Identifier => return Err(RloxError::ExpectedVarName(token)),
-                _ => unreachable!(),
+            match expected {
+                TokenType::RightParen => return Err(RloxError::UnclosedParenthesis(actual.line)),
+                TokenType::Semicolon => return Err(RloxError::MissingSemicolon(actual.line)),
+                TokenType::Identifier => return Err(RloxError::ExpectedVarName(actual)),
+                _ => {
+                    // At this point, our internal cursor looks something like:
+                    //
+                    //     [ token concerned with  ] [ actual ]
+                    //                                  ^
+                    //                                  |
+                    //  We need to step back one to provide the token actually care about
+                    let previous = self.previous().map_err(|_| unreachable!())?;
+                    return Err(RloxError::UnexpectedToken(
+                        expected.to_string(),
+                        actual,
+                        previous,
+                    ));
+                }
             }
         }
 

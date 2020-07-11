@@ -68,6 +68,8 @@ pub enum RloxError {
     ExpectedVarName(Token),
     SuperOutsideOfClass(Token),
     SuperWithoutParent(Token),
+    // expected, actual, previous
+    UnexpectedToken(String, Token, Token),
 }
 
 impl fmt::Display for RloxError {
@@ -113,6 +115,11 @@ impl fmt::Display for RloxError {
                 f,
                 "Error at '{}': Cannot use '{}' in a class with no superclass.",
                 t.lexeme, t.lexeme,
+            ),
+            Self::UnexpectedToken(expected, actual, previous) => write!(
+                f,
+                "[line {}] Error at '{}': Expect '{}' after '{}'.",
+                actual.line, actual.lexeme, expected, previous.lexeme
             ),
             // TODO: actually handle other errors
             _ => write!(f, "{:?}", self),

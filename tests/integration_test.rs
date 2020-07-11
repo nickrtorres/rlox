@@ -191,6 +191,7 @@ verify_rlox_program_err! {"super", "extra_arguments"}
 verify_rlox_program_err! {"super", "missing_arguments"}
 verify_rlox_program_err! {"super", "no_superclass_method"}
 verify_rlox_program_err! {"super", "no_superclass_bind"}
+verify_rlox_program_err! {"super", "parenthesized"}
 
 // This (ok)
 verify_rlox_program_ok! {"this", "this_in_method"}
@@ -204,6 +205,7 @@ verify_rlox_program_ok! {"variable", "early_bound"}
 verify_rlox_program_ok! {"variable", "in_middle_of_block"}
 verify_rlox_program_ok! {"variable", "in_nested_block"}
 verify_rlox_program_ok! {"variable", "local_from_method"}
+verify_rlox_program_ok! {"variable", "redeclare_global"}
 verify_rlox_program_ok! {"variable", "redefine_global"}
 verify_rlox_program_ok! {"variable", "scope_reuse_in_different_blocks"}
 verify_rlox_program_ok! {"variable", "shadow_and_local"}
