@@ -151,11 +151,16 @@ impl Interpreter {
                 self.execute_block(statements, Environment::from(&self.environment))?;
             }
             Stmt::If(expr, then_branch, else_branch) => {
-                if let Object::Bool(true) = self.evaluate(&expr)? {
-                    self.execute(then_branch)?;
-                } else if let Some(e) = else_branch {
-                    self.execute(e)?;
-                }
+                // lox only considers false and nil falsey. Every other object
+                // is considered truthy.
+                match self.evaluate(&expr)? {
+                    Object::Nil | Object::Bool(false) => {
+                        if let Some(e) = else_branch {
+                            self.execute(e)?;
+                        }
+                    }
+                    _ => self.execute(then_branch)?,
+                };
             }
             Stmt::Class(name, superclass, methods) => {
                 let superclass: Option<Box<LoxClass>> = if let Some(s) = superclass {

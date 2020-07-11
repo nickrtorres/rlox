@@ -169,6 +169,7 @@ verify_rlox_program_err! {"function", "too_many_parameters"}
 verify_rlox_program_ok! {"if", "dangling_else"}
 verify_rlox_program_ok! {"if", "else"}
 verify_rlox_program_ok! {"if", "if"}
+verify_rlox_program_ok! {"if", "truth"}
 
 // If (err)
 verify_rlox_program_err! {"if", "class_in_else"}
