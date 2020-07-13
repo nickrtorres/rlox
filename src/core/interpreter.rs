@@ -387,7 +387,7 @@ impl Interpreter {
             }
             Expr::Grouping(group) => self.evaluate(group),
             Expr::Variable(token) => Ok(self.look_up_variable(&token.lexeme, expr)?),
-            Expr::Call(callee, token, args) => {
+            Expr::Call(callee, _, args) => {
                 // TODO figure out a better way to do this.
                 //
                 // We need the caller name later to update the this pointer.
