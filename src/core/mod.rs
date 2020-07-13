@@ -322,6 +322,8 @@ impl fmt::Display for Token {
 pub enum Object {
     /// Emulates a [Java `Boolean`](https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/lang/Boolean.html)
     Bool(bool),
+    /// Emulates a [Java Callable](https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/concurrent/Callable.html)
+    Callable(LoxCallable),
     /// Emulates the [*billion-dollar mistake*](https://en.wikipedia.org/wiki/Tony_Hoare#Apologies_and_retractions)
     Nil,
     /// Emulates a [Java `Double`](https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/lang/Double.html)
@@ -330,7 +332,6 @@ pub enum Object {
     String(String),
     /// The return type of Lox's native function `Time`
     Time(u128),
-    Callable(LoxCallable),
 }
 
 impl Eq for Object {}
