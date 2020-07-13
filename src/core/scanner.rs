@@ -80,7 +80,7 @@ impl Scanner {
             '"' => self.string()?,
             c => {
                 if Scanner::is_digit(Some(c)) {
-                    self.number();
+                    self.number()?;
                 } else if c.is_alphabetic() {
                     self.identifier();
                 } else {
@@ -121,7 +121,7 @@ impl Scanner {
         c.map_or(false, |c| c.is_ascii_digit())
     }
 
-    fn number(&mut self) {
+    fn number(&mut self) -> Result<()> {
         while Scanner::is_digit(self.peek()) {
             self.advance();
         }
@@ -138,8 +138,14 @@ impl Scanner {
 
         let value = String::from(&self.scratch);
         // TODO: danger!
-        let token = TokenType::Number(value.parse::<f64>().unwrap());
+        let token = TokenType::Number(
+            value
+                .parse::<f64>()
+                .map_err(|e| RloxError::FloatParseError(self.line, e))?,
+        );
         self.add_token(token);
+
+        Ok(())
     }
 
     fn peek(&mut self) -> Option<char> {

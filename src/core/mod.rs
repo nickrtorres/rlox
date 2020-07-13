@@ -1,6 +1,7 @@
 use std::error;
 use std::fmt;
 use std::hash::{Hash, Hasher};
+use std::num::ParseFloatError;
 use std::result;
 
 mod interpreter;
@@ -23,6 +24,7 @@ pub enum RloxError {
     ArgumentMismatch(usize, usize),
     ExpectedExpression(Token),
     ExpectedVarName(Token),
+    FloatParseError(usize, ParseFloatError),
     InheritFromSelf(String),
     InheritNonClass,
     InvalidAssignment,
@@ -73,6 +75,7 @@ impl fmt::Display for RloxError {
             ),
             Self::ExpectedExpression(t) => write!(f, "Error at '{}': Expect expression.", t.lexeme),
             Self::ExpectedVarName(t) => write!(f, "Error at '{}': Expect variable name.", t.lexeme),
+            Self::FloatParseError(line, e) => write!(f, "[line {}] {}", line, e),
             Self::InheritFromSelf(s) => {
                 write!(f, "Error at '{}': A class cannot inherit from itself.", s)
             }
