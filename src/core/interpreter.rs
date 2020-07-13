@@ -141,7 +141,7 @@ impl Interpreter {
         match statement {
             Stmt::Block(statements) => {
                 fail_if_not_unique(&self.environment);
-                self.execute_block(statements, Environment::from(&self.environment))?;
+                self.execute_block(statements, Environment::from(&self.environment), None)?;
             }
             Stmt::If(expr, then_branch, else_branch) => {
                 // lox only considers false and nil falsey. Every other object
@@ -252,7 +252,12 @@ impl Interpreter {
         Ok(())
     }
 
-    pub fn execute_block(&mut self, statements: &[Stmt], environment: Environment) -> Result<()> {
+    pub fn execute_block(
+        &mut self,
+        statements: &[Stmt],
+        environment: Environment,
+        callee: Option<&str>,
+    ) -> Result<()> {
         self.environment = Rc::new(environment);
         for statement in statements {
             if let Err(e) = self.execute(statement) {
@@ -271,6 +276,14 @@ impl Interpreter {
             }
         }
 
+        if let Some(name) = callee {
+            let this = self.environment.get(THIS)?;
+            let _ = Rc::get_mut(&mut self.environment).map(|e| {
+                if let Err(e) = e.assign(name, this) {
+                    panic!();
+                }
+            });
+        }
         fail_if_not_unique(&self.environment);
         Rc::get_mut(&mut self.environment)
             .ok_or_else(|| unreachable!())
@@ -374,7 +387,20 @@ impl Interpreter {
             }
             Expr::Grouping(group) => self.evaluate(group),
             Expr::Variable(token) => Ok(self.look_up_variable(&token.lexeme, expr)?),
-            Expr::Call(callee, _, args) => {
+            Expr::Call(callee, token, args) => {
+                // TODO figure out a better way to do this.
+                //
+                // We need the caller name later to update the this pointer.
+                let caller_name: Option<&str> = if let Expr::Get(e, _) = &**callee {
+                    if let Expr::Variable(t) = &**e {
+                        Some(&t.lexeme)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
                 let function = self.evaluate(callee).and_then(|fun| match fun {
                     Object::Callable(c) => match c {
                         LoxCallable::Clock
@@ -436,7 +462,7 @@ impl Interpreter {
                             environment.define(param.lexeme.clone(), arg.clone())
                         }
 
-                        if let Err(e) = self.execute_block(&f.body, environment) {
+                        if let Err(e) = self.execute_block(&f.body, environment, caller_name) {
                             match e {
                                 RloxError::Return(v) => {
                                     if f.initializer {
