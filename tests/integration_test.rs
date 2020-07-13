@@ -193,6 +193,7 @@ verify_rlox_program_err! {"if", "var_in_then"}
 // Inheritance (ok)
 verify_rlox_program_ok! {"inheritance", "constructor"}
 verify_rlox_program_ok! {"inheritance", "inherit_methods"}
+verify_rlox_program_ok! {"inheritance", "set_fields_from_base_class"}
 
 // Inheritance (err)
 verify_rlox_program_err! {"inheritance", "inherit_from_function"}

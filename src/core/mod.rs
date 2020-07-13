@@ -481,7 +481,11 @@ impl LoxInstance {
             object: value,
         };
 
-        self.fields.push(property);
+        // TODO This should probably be a hash set and use the entry API.
+        match self.fields.iter_mut().find(|v| v.name == name) {
+            Some(e) => *e = property,
+            None => self.fields.push(property),
+        };
     }
 }
 
