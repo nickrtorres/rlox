@@ -82,7 +82,7 @@ impl Parser {
 
         let superclass = if self.match_token(TokenType::Less) {
             self.consume(TokenType::Identifier)?;
-            Some(Expr::Variable(self.previous()?))
+            Some(Expr::Variable(self.previous()))
         } else {
             None
         };
@@ -164,7 +164,7 @@ impl Parser {
     }
 
     fn return_statement(&self) -> Result<Stmt> {
-        let keyword = self.previous()?;
+        let keyword = self.previous();
 
         let value = if !self.check(TokenType::Semicolon) {
             Some(*self.expression()?)
@@ -256,10 +256,8 @@ impl Parser {
         self.advance();
 
         while !self.is_at_end() {
-            if let Ok(token) = self.previous() {
-                if token.token_type == TokenType::Semicolon {
-                    return;
-                }
+            if let TokenType::Semicolon = self.previous().token_type {
+                return;
             }
 
             if let Some(token) = self.peek() {
@@ -320,7 +318,7 @@ impl Parser {
         let mut expr = self.and()?;
 
         while self.match_token(TokenType::Or) {
-            let operator = self.previous()?;
+            let operator = self.previous();
             let right = self.and()?;
             expr = Box::new(Expr::Logical(expr, operator, right));
         }
@@ -332,7 +330,7 @@ impl Parser {
         let mut expr = self.equality()?;
 
         while self.match_token(TokenType::And) {
-            let operator = self.previous()?;
+            let operator = self.previous();
             let right = self.and()?;
             expr = Box::new(Expr::Logical(expr, operator, right));
         }
@@ -344,7 +342,7 @@ impl Parser {
         let mut expr = self.comparison()?;
 
         while self.match_tokens(vec![TokenType::BangEqual, TokenType::EqualEqual]) {
-            let operator = self.previous()?;
+            let operator = self.previous();
             let right = self.comparison()?;
 
             expr = Box::new(Expr::Binary(expr, operator, right));
@@ -362,7 +360,7 @@ impl Parser {
             TokenType::Less,
             TokenType::LessEqual,
         ]) {
-            let operator = self.previous()?;
+            let operator = self.previous();
             let right = self.addition()?;
             expr = Box::new(Expr::Binary(expr, operator, right));
         }
@@ -374,7 +372,7 @@ impl Parser {
         let mut expr = self.multiplication()?;
 
         while self.match_tokens(vec![TokenType::Minus, TokenType::Plus]) {
-            let operator = self.previous()?;
+            let operator = self.previous();
             let right = self.multiplication()?;
 
             expr = Box::new(Expr::Binary(expr, operator, right));
@@ -387,7 +385,7 @@ impl Parser {
         let mut expr = self.unary()?;
 
         while self.match_tokens(vec![TokenType::Slash, TokenType::Star]) {
-            let operator = self.previous()?;
+            let operator = self.previous();
             let right = self.unary()?;
 
             expr = Box::new(Expr::Binary(expr, operator, right));
@@ -398,7 +396,7 @@ impl Parser {
 
     fn unary(&self) -> Result<Box<Expr>> {
         if self.match_tokens(vec![TokenType::Bang, TokenType::Minus]) {
-            let operator = self.previous()?;
+            let operator = self.previous();
             let right = self.unary()?;
 
             return Ok(Box::new(Expr::Unary(operator, right)));
@@ -458,7 +456,7 @@ impl Parser {
         }
 
         if self.match_token(TokenType::Super) {
-            let keyword = self.previous()?;
+            let keyword = self.previous();
             self.consume(TokenType::Dot)?;
             let method = self.consume(TokenType::Identifier)?;
 
@@ -470,7 +468,7 @@ impl Parser {
             TokenType::Number(f64::from(0)),
             TokenType::String(String::new()),
         ]) {
-            let previous = self.previous()?;
+            let previous = self.previous();
             let rv = match &previous.token_type {
                 TokenType::Number(n) => Ok(Box::new(Expr::Literal(Object::Number(*n)))),
                 TokenType::String(s) => Ok(Box::new(Expr::Literal(Object::String(s.to_owned())))),
@@ -481,11 +479,11 @@ impl Parser {
         }
 
         if self.match_token(TokenType::This) {
-            return Ok(Box::new(Expr::This(self.previous()?)));
+            return Ok(Box::new(Expr::This(self.previous())));
         }
 
         if self.match_token(TokenType::Identifier) {
-            return Ok(Box::new(Expr::Variable(self.previous()?)));
+            return Ok(Box::new(Expr::Variable(self.previous())));
         }
 
         if self.match_token(TokenType::LeftParen) {
@@ -518,7 +516,7 @@ impl Parser {
                     //                                  ^
                     //                                  |
                     //  We need to step back one to provide the token actually care about
-                    let previous = self.previous().map_err(|_| unreachable!())?;
+                    let previous = self.previous();
                     return Err(RloxError::UnexpectedToken(
                         expected.to_string(),
                         actual,
@@ -563,12 +561,12 @@ impl Parser {
         self.tokens.get(self.cursor.get())
     }
 
-    fn previous(&self) -> Result<Token> {
-        debug_assert!(self.cursor.get() > 0);
+    fn previous(&self) -> Token {
+        assert!(self.cursor.get() > 0);
         self.tokens
             .get(self.cursor.get() - 1)
-            .ok_or(RloxError::NoPrevious)
             .map(|t| t.clone())
+            .unwrap()
     }
 
     fn advance(&self) -> Option<Token> {
@@ -577,7 +575,7 @@ impl Parser {
             self.cursor.replace(old + 1);
         }
 
-        self.previous().ok()
+        Some(self.previous())
     }
 }
 

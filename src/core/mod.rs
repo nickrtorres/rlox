@@ -19,10 +19,6 @@ const MAX_PARAMS: usize = 255;
 
 #[derive(Debug, PartialEq)]
 pub enum RloxError {
-    /// An internal error occured when querying for the previous element. This
-    /// is either due to a programming error or an internal error in `Vec`. The
-    /// former is *much* more likely.
-    NoPrevious,
     /// An '(' open parenthesis token was parsed, but no ')' close parenthesis
     /// token was found.
     UnclosedParenthesis(usize),
