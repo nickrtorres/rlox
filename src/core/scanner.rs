@@ -34,8 +34,8 @@ impl Scanner {
 
     /// Returns the list of Tokens owned by self
     pub fn scan_tokens<'s>(mut self) -> Result<Vec<Token>> {
-        while !self.is_at_end() {
-            self.scan_token()?;
+        while let Some(c) = self.advance() {
+            self.scan_token(c)?;
             self.scratch.clear();
         }
 
@@ -45,16 +45,7 @@ impl Scanner {
         Ok(self.tokens)
     }
 
-    fn is_at_end(&mut self) -> bool {
-        self.chars.peek().is_none()
-    }
-
-    fn scan_token(&mut self) -> Result<()> {
-        let c = match self.advance() {
-            Some(c) => c,
-            None => return Ok(()),
-        };
-
+    fn scan_token(&mut self, c: char) -> Result<()> {
         match c {
             ' ' | '\r' | '\t' => {}
             '(' => self.add_token(TokenType::LeftParen),
