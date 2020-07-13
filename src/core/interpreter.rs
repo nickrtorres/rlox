@@ -278,11 +278,11 @@ impl Interpreter {
 
         if let Some(name) = callee {
             let this = self.environment.get(THIS)?;
-            let _ = Rc::get_mut(&mut self.environment).map(|e| {
-                if let Err(e) = e.assign(name, this) {
-                    panic!();
-                }
-            });
+            Rc::get_mut(&mut self.environment)
+                .ok_or_else(|| {
+                    unreachable!();
+                })
+                .and_then(|e| e.assign(name, this))?;
         }
         fail_if_not_unique(&self.environment);
         Rc::get_mut(&mut self.environment)
