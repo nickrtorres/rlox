@@ -46,11 +46,6 @@ pub enum RloxError {
     UndefinedVariable(String),
     /// An invalid assignment was attempted
     InvalidAssignment,
-    /// An attempt was made to mutate a non unique Rc ptr
-    ///
-    /// Maybe this should be an assertion rather than a user facing error. This
-    /// is really an implementation detail of the interpreter.
-    NonUniqueRc,
     Return(Object),
     VariableRedefinition,
     ReturnInNonFunction,

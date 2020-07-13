@@ -11,16 +11,9 @@ use super::{
 const THIS: &str = "this";
 const SUPER: &str = "super";
 
-/// Checks if an Rc is unique
-///
-/// Returns RloxError::NonUniqueRc is the strong count or weak_count is greater
-/// than 1
-fn fail_if_not_unique<T>(ptr: &Rc<T>) -> Result<()> {
-    if Rc::strong_count(ptr) > 1 || Rc::weak_count(ptr) > 1 {
-        return Err(RloxError::NonUniqueRc);
-    }
-
-    Ok(())
+fn fail_if_not_unique<T>(ptr: &Rc<T>) {
+    assert!(Rc::strong_count(ptr) <= 1);
+    assert!(Rc::weak_count(ptr) <= 1);
 }
 
 #[derive(Debug, Clone)]
@@ -66,7 +59,7 @@ impl Environment {
         match self.values.entry(name.to_owned()) {
             Entry::Vacant(_) => {
                 if let Some(e) = &mut self.enclosing {
-                    fail_if_not_unique(&e)?;
+                    fail_if_not_unique(&e);
                     return Rc::get_mut(e)
                         .ok_or_else(|| unreachable!())
                         .and_then(|nested| nested.assign(name, value));
@@ -85,7 +78,7 @@ impl Environment {
         let enclosing = self.enclosing.take().ok_or_else(|| unreachable!())?;
 
         // we're about to consume enclosing! make sure there aren't any other users
-        fail_if_not_unique(&enclosing)?;
+        fail_if_not_unique(&enclosing);
         *self = Rc::try_unwrap(enclosing).map_err(|_| unreachable!())?;
 
         Ok(())
@@ -147,7 +140,7 @@ impl Interpreter {
     fn execute(&mut self, statement: &Stmt) -> Result<()> {
         match statement {
             Stmt::Block(statements) => {
-                fail_if_not_unique(&self.environment)?;
+                fail_if_not_unique(&self.environment);
                 self.execute_block(statements, Environment::from(&self.environment))?;
             }
             Stmt::If(expr, then_branch, else_branch) => {
@@ -189,7 +182,7 @@ impl Interpreter {
                 }
 
                 let klass = Object::Callable(LoxCallable::ClassDefinition(klass));
-                fail_if_not_unique(&self.environment)?;
+                fail_if_not_unique(&self.environment);
                 Rc::get_mut(&mut self.environment)
                     .map(|e| e.define(name.lexeme.clone(), klass))
                     .ok_or_else(|| unreachable!())?;
@@ -241,7 +234,7 @@ impl Interpreter {
                     _ => unreachable!(),
                 };
 
-                fail_if_not_unique(&self.environment)?;
+                fail_if_not_unique(&self.environment);
                 Rc::get_mut(&mut self.environment)
                     .map(|e| e.define(name.to_owned(), Object::Callable(f.clone())))
                     .ok_or_else(|| unreachable!())?;
@@ -267,7 +260,7 @@ impl Interpreter {
                     // Make sure to flatten our environment before returning a
                     // value to the caller
                     RloxError::Return(v) => {
-                        fail_if_not_unique(&self.environment)?;
+                        fail_if_not_unique(&self.environment);
                         Rc::get_mut(&mut self.environment)
                             .ok_or_else(|| unreachable!())
                             .and_then(Environment::flatten)?;
@@ -278,7 +271,7 @@ impl Interpreter {
             }
         }
 
-        fail_if_not_unique(&self.environment)?;
+        fail_if_not_unique(&self.environment);
         Rc::get_mut(&mut self.environment)
             .ok_or_else(|| unreachable!())
             .and_then(Environment::flatten)?;
