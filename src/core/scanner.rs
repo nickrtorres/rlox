@@ -201,8 +201,8 @@ mod tests {
             Token::new(TokenType::Eof, String::from(""), 1),
         ];
 
-        for i in 0..4 {
-            assert_eq!(actual.get(i), expected.get(i));
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            assert_eq!(actual, expected);
         }
     }
 
@@ -226,8 +226,8 @@ mod tests {
             Token::new(TokenType::Eof, String::from(""), 1),
         ];
 
-        for i in 0..6 {
-            assert_eq!(actual.get(i), expected.get(i));
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            assert_eq!(actual, expected);
         }
     }
 
@@ -267,8 +267,8 @@ mod tests {
             Token::new(TokenType::Eof, String::from(""), 6),
         ];
 
-        for i in 0..16 {
-            assert_eq!(actual.get(i), expected.get(i));
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            assert_eq!(actual, expected);
         }
     }
 }
