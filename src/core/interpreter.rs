@@ -540,17 +540,38 @@ impl Interpreter {
             Expr::This(keyword) => Ok(self.look_up_variable(&keyword.lexeme, expr)?),
             Expr::Super(_, method) => {
                 let superclass = self.look_up_variable(SUPER, expr)?;
-                if let Object::Callable(LoxCallable::ClassDefinition(_)) = superclass {
-                    if let Object::Callable(LoxCallable::ClassInstance(c)) =
-                        self.environment.get("this")?
-                    {
-                        c.get_super(&method.lexeme)
-                    } else {
-                        unreachable!(); // ?
+                if let Object::Callable(LoxCallable::ClassDefinition(d)) = superclass {
+                    // We need to determine if the super call is referring to a grandparent or
+                    // ourselves. For now, this is done by checking the existence of a superclass.
+                    if d.superclass.is_none() {
+                        if let Some(Object::Callable(LoxCallable::ClassInstance(c))) =
+                            self.environment.get(THIS).ok()
+                        {
+                            return c.get_super(&method.lexeme);
+                        }
                     }
-                } else {
-                    unreachable!();
+
+                    // Walk up the tree
+                    let mut tree_walker = d.superclass;
+                    while let Some(s) = tree_walker {
+                        if let Some(m) = s.methods.iter().find(|m| m.name.lexeme == method.lexeme) {
+                            let mut method = m.clone();
+                            if let Some(Object::Callable(LoxCallable::ClassInstance(c))) =
+                                self.environment.get(THIS).ok()
+                            {
+                                method.this = Some(c);
+                            } else {
+                                unreachable!();
+                            }
+                            return Ok(Object::Callable(LoxCallable::UserDefined(method)));
+                        } else {
+                            tree_walker = s.superclass;
+                        }
+                    }
                 }
+
+                // TODO make new error: NoSuperMethod
+                Err(RloxError::UndefinedProperty(method.lexeme.to_owned()))
             }
         }
     }

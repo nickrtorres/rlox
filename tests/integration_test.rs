@@ -247,6 +247,7 @@ verify_rlox_program_ok! {"super", "call_same_method"}
 verify_rlox_program_ok! {"super", "constructor"}
 verify_rlox_program_ok! {"super", "indirectly_inherited"}
 verify_rlox_program_ok! {"super", "reassign_superclass"}
+verify_rlox_program_ok! {"super", "super_in_inherited_method"}
 
 // Super (err)
 verify_rlox_program_err! {"super", "extra_arguments"}
