@@ -19,9 +19,13 @@ const MAX_PARAMS: usize = 255;
 
 #[derive(Debug, PartialEq)]
 pub enum RloxError {
-    /// An '(' open parenthesis token was parsed, but no ')' close parenthesis
-    /// token was found.
-    UnclosedParenthesis(usize),
+    // expected, actual
+    ArgumentMismatch(usize, usize),
+    ExpectedExpression(Token),
+    ExpectedVarName(Token),
+    InheritFromSelf(String),
+    InheritNonClass,
+    InvalidAssignment,
     /// The operand types do not match for the given binary expression. The
     /// tuple elements are in [Polish notation][wiki-NPN] i.e. operator, left, right
     ///
@@ -38,66 +42,54 @@ pub enum RloxError {
     MismatchedOperands(TokenType, Object, Object),
     /// The statement entered is missing a semicolon
     MissingSemicolon(usize),
-    /// A non existent variable was queried
-    UndefinedVariable(String),
-    /// An invalid assignment was attempted
-    InvalidAssignment,
-    Return(Object),
-    VariableRedefinition,
-    ReturnInNonFunction,
-    PropertyAccessOnNonInstance,
-    UndefinedProperty(String),
-    ThisOutsideOfClass,
-    ReturnValueFromConstructor,
-    // expected, actual
-    ArgumentMismatch(usize, usize),
-    InheritFromSelf(String),
-    InheritNonClass,
     NotCallable,
-    TooManyArgs(Token),
-    ExpectedExpression(Token),
-    ExpectedVarName(Token),
+    PropertyAccessOnNonInstance,
+    Return(Object),
+    ReturnInNonFunction,
+    ReturnValueFromConstructor,
     SuperOutsideOfClass(Token),
     SuperWithoutParent(Token),
+    ThisOutsideOfClass,
+    TooManyArgs(Token),
+    /// An '(' open parenthesis token was parsed, but no ')' close parenthesis
+    /// token was found.
+    UnclosedParenthesis(usize),
+    UndefinedProperty(String),
+    /// A non existent variable was queried
+    UndefinedVariable(String),
     // expected, actual, previous
     UnexpectedToken(String, Token, Token),
     UnterminatedString(usize),
+    VariableRedefinition,
 }
 
 impl fmt::Display for RloxError {
     fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
         match self {
-            Self::MismatchedOperands(op, left, right) => {
-                write!(f, "error: invalid expression: {} {} {}", left, op, right)
-            }
-            Self::MissingSemicolon(line) => write!(f, "error: {}: missing semicolon", line),
-            Self::UnclosedParenthesis(line) => write!(f, "error: {}: unclosed parenthesis", line),
-            Self::ThisOutsideOfClass => {
-                write!(f, "Error at 'this': Cannot use 'this' outside of a class.")
-            }
-            Self::ReturnValueFromConstructor => write!(
-                f,
-                "Error at 'return': Cannot return a value from an initializer."
-            ),
             Self::ArgumentMismatch(expected, actual) => write!(
                 f,
                 "runtime error: Expected {} arguments but got {}.",
                 expected, actual
             ),
+            Self::ExpectedExpression(t) => write!(f, "Error at '{}': Expect expression.", t.lexeme),
+            Self::ExpectedVarName(t) => write!(f, "Error at '{}': Expect variable name.", t.lexeme),
+            Self::InheritFromSelf(s) => {
+                write!(f, "Error at '{}': A class cannot inherit from itself.", s)
+            }
+            Self::InheritNonClass => write!(f, "runtime error: Superclass must be a class."),
+            Self::InvalidAssignment => write!(f, "Error at '=': Invalid assignment target."),
+            Self::MismatchedOperands(op, left, right) => {
+                write!(f, "error: invalid expression: {} {} {}", left, op, right)
+            }
+            Self::MissingSemicolon(line) => write!(f, "error: {}: missing semicolon", line),
             Self::NotCallable => write!(f, "runtime error: Can only call functions and classes."),
             Self::PropertyAccessOnNonInstance => {
                 write!(f, "runtime error: Only instances have properties.")
             }
-            Self::UndefinedProperty(s) => write!(f, "runtime error: Undefined property '{}'.", s),
-            Self::TooManyArgs(t) => write!(
+            Self::ReturnValueFromConstructor => write!(
                 f,
-                "Error at '{}': Cannot have more than {} parameters.",
-                t.lexeme, MAX_PARAMS
+                "Error at 'return': Cannot return a value from an initializer."
             ),
-            Self::InheritNonClass => write!(f, "runtime error: Superclass must be a class."),
-            Self::ExpectedExpression(t) => write!(f, "Error at '{}': Expect expression.", t.lexeme),
-            Self::ExpectedVarName(t) => write!(f, "Error at '{}': Expect variable name.", t.lexeme),
-            Self::UndefinedVariable(s) => write!(f, "runtime error: Undefined variable '{}'.", s),
             Self::SuperOutsideOfClass(t) => write!(
                 f,
                 "Error at '{}': Cannot use '{}' outside of a class.",
@@ -108,16 +100,23 @@ impl fmt::Display for RloxError {
                 "Error at '{}': Cannot use '{}' in a class with no superclass.",
                 t.lexeme, t.lexeme,
             ),
+            Self::ThisOutsideOfClass => {
+                write!(f, "Error at 'this': Cannot use 'this' outside of a class.")
+            }
+            Self::TooManyArgs(t) => write!(
+                f,
+                "Error at '{}': Cannot have more than {} parameters.",
+                t.lexeme, MAX_PARAMS
+            ),
+            Self::UnclosedParenthesis(line) => write!(f, "error: {}: unclosed parenthesis", line),
+            Self::UndefinedProperty(s) => write!(f, "runtime error: Undefined property '{}'.", s),
+            Self::UndefinedVariable(s) => write!(f, "runtime error: Undefined variable '{}'.", s),
             Self::UnexpectedToken(expected, actual, previous) => write!(
                 f,
                 "[line {}] Error at '{}': Expect '{}' after '{}'.",
                 actual.line, actual.lexeme, expected, previous.lexeme
             ),
             Self::UnterminatedString(l) => write!(f, "[line {}] Error: Unterminated string.", l),
-            Self::InvalidAssignment => write!(f, "Error at '=': Invalid assignment target."),
-            Self::InheritFromSelf(s) => {
-                write!(f, "Error at '{}': A class cannot inherit from itself.", s)
-            }
             // TODO: actually handle other errors
             _ => write!(f, "{:?}", self),
         }
