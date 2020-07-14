@@ -545,16 +545,12 @@ impl Parser {
             return Ok(Box::new(Expr::Grouping(expr)));
         }
 
-        Err(RloxError::ExpectedExpression(self.advance().ok_or_else(
-            || {
-                unreachable!();
-            },
-        )?))
+        Err(RloxError::ExpectedExpression(self.advance().unwrap()))
     }
 
     fn consume(&self, expected: TokenType) -> Result<Token> {
         if !self.check(expected.clone()) {
-            let actual = self.peek().ok_or_else(|| unreachable!())?.clone();
+            let actual = self.peek().unwrap().clone();
 
             match expected {
                 TokenType::RightParen => return Err(RloxError::UnclosedParenthesis(actual.line)),
@@ -580,7 +576,7 @@ impl Parser {
         }
 
         // We just validated the next token. It must exist.
-        self.advance().ok_or_else(|| unreachable!())
+        Ok(self.advance().unwrap())
     }
 
     fn match_token(&self, token_type: TokenType) -> bool {
