@@ -76,6 +76,46 @@ impl Environment {
 
     /// Collapses the environment 1 level.
     ///
+    /// Given an arbitrary environment (`e`) with a valid enclosing (`c`) environment:
+    /// ```notrust
+    ///     +---------------+
+    ///     | e             |
+    ///     | =             |
+    ///     | values: {     |
+    ///     |   // ...      |
+    ///     |   // ...      |
+    ///     |   // ...      |
+    ///     | }             |
+    ///     |               |
+    ///     | enclosing: ---+------>+---------------+
+    ///     +---------------+       | c             |
+    ///                             | =             |
+    ///                             | values: {     |
+    ///                             |   // ...      |
+    ///                             |   // ...      |
+    ///                             |   // ...      |
+    ///                             | }             |
+    ///                             |               |
+    ///                             | enclosing: ---+------> // ...
+    ///                             +---------------+
+    /// ```
+    ///
+    /// A call of `e.flatten()` will collapse the environment:
+    /// ```notrust
+    ///     +---------------+
+    ///     | c             |
+    ///     | =             |
+    ///     | values: {     |
+    ///     |   // ...      |
+    ///     |   // ...      |
+    ///     |   // ...      |
+    ///     | }             |
+    ///     |               |
+    ///     | enclosing: ---+------> // ...
+    ///     +---------------+       
+    /// ```
+    ///
+    /// # Panics
     /// `flatten` is infallible. It is the responsibility of the programmer to
     /// ensure that (1) the current environment has an enclosing environment and
     /// (2) the enclosing environment is a unique Rc. Failure to meet the
