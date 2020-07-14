@@ -62,9 +62,7 @@ impl Environment {
             Entry::Vacant(_) => {
                 if let Some(e) = &mut self.enclosing {
                     fail_if_not_unique(&e);
-                    return Rc::get_mut(e)
-                        .ok_or_else(|| unreachable!())
-                        .and_then(|nested| nested.assign(name, value));
+                    return Rc::get_mut(e).unwrap().assign(name, value);
                 }
 
                 Err(RloxError::UndefinedVariable(name.to_owned()))
