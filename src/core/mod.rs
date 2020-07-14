@@ -374,16 +374,14 @@ impl LoxInstance {
     /// superclass list until we (1) find the method we're looking for or (2)
     /// exhaust the candidate list.
     fn get_super(&self, name: &str) -> Result<Object> {
-        for candidate in self.walker() {
-            if let Some(method) = candidate.methods.iter().find(|e| e.name.lexeme == name) {
-                let mut method = method.clone();
-                method.this = Some(self.clone());
-                method.superclass = self.superclass.clone().map(|s| *s);
-                return Ok(Object::Callable(LoxCallable::UserDefined(method)));
-            }
+        if let Some(method) = find_super_method(self.walker(), name) {
+            let mut method = method.clone();
+            method.this = Some(self.clone());
+            method.superclass = self.superclass.clone().map(|s| *s);
+            Ok(Object::Callable(LoxCallable::UserDefined(method)))
+        } else {
+            Err(RloxError::UndefinedProperty(name.to_owned()))
         }
-
-        Err(RloxError::UndefinedProperty(name.to_owned()))
     }
 
     fn set(&mut self, name: &str, value: Object) {
@@ -402,6 +400,20 @@ impl LoxInstance {
     fn walker(&self) -> LoxClassWalker {
         LoxClassWalker::new(self.superclass.as_ref().map(|s| &**s))
     }
+}
+
+/// Searches through `walker's` inheritance tree for `name`
+///
+/// In the worst case this routine is O(m*n) where m in the number methods on
+/// `candidate` and `n` is inheritance depth.
+fn find_super_method<'a, W: Walk<'a>>(mut walker: W, name: &str) -> Option<&'a FunctionStmt> {
+    while let Some(candidate) = walker.walk() {
+        if let Some(method) = candidate.methods.iter().find(|e| e.name.lexeme == name) {
+            return Some(method);
+        }
+    }
+
+    None
 }
 
 /// jlox implements this with OOP. Namely jlox:
@@ -640,6 +652,17 @@ mod tests {
     mod walker {
         use super::*;
 
+        fn make_method(name: &str, superclass: Option<LoxClass>) -> FunctionStmt {
+            FunctionStmt {
+                name: Token::new(TokenType::Identifier, name.to_owned(), 1),
+                parameters: Vec::default(),
+                body: Vec::default(),
+                this: None,
+                initializer: false,
+                superclass,
+            }
+        }
+
         #[test]
         fn it_can_walk_an_inheritance_tree() {
             let grandparent = LoxClass::new("grandparent".to_owned(), None);
@@ -663,6 +686,55 @@ mod tests {
                 LoxClassWalker::new(child.superclass.as_ref().map(|s| &**s)).collect();
 
             assert_eq!(vec![&parent, &grandparent], ancestors);
+        }
+
+        #[test]
+        fn it_can_find_super_methods() {
+            let mut grandparent = LoxClass::new("grandparent".to_owned(), None);
+            let foo = make_method("foo", None);
+            let bar = make_method("bar", None);
+            let baz = make_method("baz", None);
+            let qux = make_method("qux", None);
+
+            grandparent.add_method(foo.clone());
+            grandparent.add_method(bar.clone());
+            grandparent.add_method(baz.clone());
+            grandparent.add_method(qux.clone());
+
+            let parent = LoxClass::new("parent".to_owned(), Some(Box::new(grandparent.clone())));
+            let child = LoxClass::new("child".to_owned(), Some(Box::new(parent.clone())));
+
+            assert_eq!(Some(&foo), find_super_method(child.walker(), "foo"));
+        }
+
+        #[test]
+        fn it_can_find_super_methods_intermediates() {
+            let mut grandparent = LoxClass::new("grandparent".to_owned(), None);
+            let foo = make_method("foo", None);
+            let bar = make_method("bar", None);
+            let baz = make_method("baz", None);
+            let qux = make_method("qux", None);
+
+            grandparent.add_method(foo.clone());
+            grandparent.add_method(bar.clone());
+            grandparent.add_method(baz.clone());
+            grandparent.add_method(qux.clone());
+
+            let mut parent =
+                LoxClass::new("parent".to_owned(), Some(Box::new(grandparent.clone())));
+            let a = make_method("a", Some(grandparent.clone()));
+            let b = make_method("b", Some(grandparent.clone()));
+            let c = make_method("c", Some(grandparent.clone()));
+            let d = make_method("d", Some(grandparent.clone()));
+
+            parent.add_method(a.clone());
+            parent.add_method(b.clone());
+            parent.add_method(c.clone());
+            parent.add_method(d.clone());
+
+            let child = LoxClass::new("child".to_owned(), Some(Box::new(parent.clone())));
+
+            assert_eq!(Some(&qux), find_super_method(child.walker(), "qux"));
         }
     }
 }

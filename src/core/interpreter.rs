@@ -4,8 +4,8 @@ use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::{
-    Expr, LoxCallable, LoxClass, LoxInstance, Object, Result, RloxError, Stmt, Token, TokenType,
-    INIT_METHOD,
+    find_super_method, Expr, LoxCallable, LoxClass, LoxInstance, Object, Result, RloxError, Stmt,
+    Token, TokenType, INIT_METHOD,
 };
 
 const THIS: &str = "this";
@@ -554,23 +554,17 @@ impl Interpreter {
                         }
                     }
 
-                    // Walk up the tree
-                    for candidate in d.walker() {
-                        if let Some(m) = candidate
-                            .methods
-                            .iter()
-                            .find(|m| m.name.lexeme == method.lexeme)
+                    if let Some(method) = find_super_method(d.walker(), &method.lexeme) {
+                        let mut method = method.clone();
+                        method.this = if let Object::Callable(LoxCallable::ClassInstance(c)) =
+                            self.environment.get(THIS).unwrap()
                         {
-                            let mut method = m.clone();
-                            if let Ok(Object::Callable(LoxCallable::ClassInstance(c))) =
-                                self.environment.get(THIS)
-                            {
-                                method.this = Some(c);
-                            } else {
-                                unreachable!();
-                            }
-                            return Ok(Object::Callable(LoxCallable::UserDefined(method)));
-                        }
+                            Some(c)
+                        } else {
+                            panic!("there must be a this instance for a class method");
+                        };
+
+                        return Ok(Object::Callable(LoxCallable::UserDefined(method)));
                     }
                 }
 
