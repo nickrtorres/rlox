@@ -38,12 +38,12 @@ impl fmt::Display for LoxInstance {
 impl fmt::Display for Object {
     fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
         match self {
-            Object::Bool(b) => write!(f, "{}", b),
-            Object::Nil => write!(f, "nil"),
-            Object::Number(n) => write!(f, "{}", n),
-            Object::String(s) => write!(f, "{}", s),
-            Object::Time(t) => write!(f, "{}", t),
-            Object::Callable(c) => write!(f, "{}", c),
+            Self::Bool(b) => write!(f, "{}", b),
+            Self::Nil => write!(f, "nil"),
+            Self::Number(n) => write!(f, "{}", n),
+            Self::String(s) => write!(f, "{}", s),
+            Self::Time(t) => write!(f, "{}", t),
+            Self::Callable(c) => write!(f, "{}", c),
         }
     }
 }
