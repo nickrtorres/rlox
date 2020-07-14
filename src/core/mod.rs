@@ -4,10 +4,10 @@ use std::num::ParseFloatError;
 use std::result;
 
 mod display;
-mod interpreter;
-mod parser;
-mod resolver;
-mod scanner;
+pub mod interpreter;
+pub mod parser;
+pub mod resolver;
+pub mod scanner;
 
 pub type Interpreter = interpreter::Interpreter;
 pub type Parser = parser::Parser;
