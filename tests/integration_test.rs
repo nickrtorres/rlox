@@ -106,6 +106,9 @@ verify_rlox_program_ok! {"class", "reference_self"}
 verify_rlox_program_err! {"class", "inherit_self"}
 verify_rlox_program_err! {"class", "local_inherit_self"}
 
+// Closure (ok)
+verify_rlox_program_ok! {"closure", "close_over_later_variable"}
+
 // Comments (ok)
 verify_rlox_program_ok! {"comments", "line_at_eof"}
 verify_rlox_program_ok! {"comments", "only_line_comment"}
