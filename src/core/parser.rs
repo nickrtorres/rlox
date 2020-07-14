@@ -7,28 +7,81 @@ use super::{
 
 /// Parses a series of Tokens into an abstract syntax tree
 ///
-/// Parser implements Lox's grammer show below:
+/// `Parser` implements the lox grammar defined in [Crafting Interpreters: Appendix I]
+///
+/// ## Syntax grammar
 /// ```notrust
-///   expression     → equality ;
-///   equality       → comparison ( ( "!=" | "==" ) comparison )* ;
-///   comparison     → addition ( ( ">" | ">=" | "<" | "<=" ) addition )* ;
-///   addition       → multiplication ( ( "-" | "+" ) multiplication )* ;
-///   multiplication → unary ( ( "/" | "*" ) unary )* ;
-///   unary          → ( "!" | "-" ) unary
-///                  | primary ;
-///   primary        → NUMBER | STRING | "false" | "true" | "nil"
-///                  | "(" expression ")" ;
-///   program        → statement* EOF ;
-///   statement      → exprStmt
-///                  | printStmt ;
-///   exprStmt       → expression ";" ;
-///   printStmt      → "print" expression ";" ;
+/// program        → declaration* EOF ;
 /// ```
 ///
-/// `Parser` is **not** thread safe. Internally, `Parser` uses interior
-/// mutability to manage it's internal cursor for the current, next, and
-/// previous tokens. This is an implementation detail most end users don't need
-/// to worry about.
+/// ### Declarations
+/// ```notrust
+/// expression     → equality ;
+/// equality       → comparison ( ( "!=" | "==" ) comparison )* ;
+/// comparison     → addition ( ( ">" | ">=" | "<" | "<=" ) addition )* ;
+/// addition       → multiplication ( ( "-" | "+" ) multiplication )* ;
+/// multiplication → unary ( ( "/" | "*" ) unary )* ;
+/// unary          → ( "!" | "-" ) unary
+///                | primary ;
+/// primary        → NUMBER | STRING | "false" | "true" | "nil"
+///                | "(" expression ")" ;
+/// program        → statement* EOF ;
+/// statement      → exprStmt
+///                | printStmt ;
+/// exprStmt       → expression ";" ;
+/// printStmt      → "print" expression ";" ;
+/// ```
+///
+/// ### Statements
+/// ```notrust
+///  statement     → exprStmt
+///                | forStmt
+///                | ifStmt
+///                | printStmt
+///                | returnStmt
+///                | whileStmt
+///                | block ;
+///
+/// exprStmt       → expression ";" ;
+/// forStmt        → "for" "(" ( varDecl | exprStmt | ";" )
+///                            expression? ";"
+///                            expression? ")" statement ;
+/// ifStmt         → "if" "(" expression ")" statement ( "else" statement )? ;
+/// printStmt      → "print" expression ";" ;
+/// returnStmt     → "return" expression? ";" ;
+/// whileStmt      → "while" "(" expression ")" statement ;
+/// block          → "{" declaration* "}" ;
+/// ```
+///
+/// ### Expressions
+/// ```notrust
+/// expression     → assignment ;
+///
+/// assignment     → ( call "." )? IDENTIFIER "=" assignment
+///                | logic_or;
+///
+/// logic_or       → logic_and ( "or" logic_and )* ;
+/// logic_and      → equality ( "and" equality )* ;
+/// equality       → comparison ( ( "!=" | "==" ) comparison )* ;
+/// comparison     → addition ( ( ">" | ">=" | "<" | "<=" ) addition )* ;
+/// addition       → multiplication ( ( "-" | "+" ) multiplication )* ;
+/// multiplication → unary ( ( "/" | "*" ) unary )* ;
+///
+/// unary          → ( "!" | "-" ) unary | call ;
+/// call           → primary ( "(" arguments? ")" | "." IDENTIFIER )* ;
+/// primary        → "true" | "false" | "nil" | "this"
+///                | NUMBER | STRING | IDENTIFIER | "(" expression ")"
+///                | "super" "." IDENTIFIER ;
+/// ```
+///
+/// ### Utility rules
+/// ```notrust
+/// function       → IDENTIFIER "(" parameters? ")" block ;
+/// parameters     → IDENTIFIER ( "," IDENTIFIER )* ;
+/// arguments      → expression ( "," expression )* ;
+/// ```
+///
+/// [Crafting Interpreters: Appendix I]: https://www.craftinginterpreters.com/appendix-i.html
 pub struct Parser {
     tokens: Vec<Token>,
     /// cursor is an implementation detail end users shouldn't worry about. Use
