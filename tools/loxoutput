@@ -2,7 +2,7 @@
 '''Creates a stderr or stdout file for a lox test case.
 
     Typical usage example:
-    % python3 loxoutput.py -type 'stdout' --category 'variable' --name 'global'
+    % python3 loxoutput.py --type 'stdout' --category 'variable' --name 'global'
 '''
 from argparse import ArgumentParser
 import os
