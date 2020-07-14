@@ -171,13 +171,14 @@ impl Token {
     pub fn new(token_type: TokenType, lexeme: String, line: usize) -> Self {
         Token {
             token_type,
-            lexeme: lexeme,
+            lexeme,
             line,
         }
     }
 }
 
 impl Default for Token {
+    #[must_use]
     fn default() -> Self {
         Token {
             token_type: TokenType::Default,
@@ -239,6 +240,7 @@ pub enum LoxCallable {
 
 impl LoxCallable {
     // TODO clean this up
+    #[must_use]
     pub fn arity(&self) -> usize {
         match self {
             Self::UserDefined(f) => f.parameters.len(),
@@ -270,10 +272,11 @@ pub struct LoxClass {
 }
 
 impl LoxClass {
+    #[must_use]
     fn new(name: String, superclass: Option<Box<LoxClass>>) -> Self {
         LoxClass {
-            name: name,
-            methods: Vec::new(),
+            name,
+            methods: Vec::default(),
             superclass,
         }
     }
@@ -301,6 +304,7 @@ pub struct LoxInstance {
 }
 
 impl LoxInstance {
+    #[must_use]
     fn new(class: LoxClass, superclass: Option<Box<LoxClass>>) -> Self {
         LoxInstance {
             name: class.name.clone(),
@@ -319,7 +323,7 @@ impl LoxInstance {
             let mut method = method.clone();
             method.this = Some(self.clone());
             method.superclass = self.superclass.clone().map(|s| *s);
-            return Ok(Object::Callable(LoxCallable::UserDefined(method)));
+            Ok(Object::Callable(LoxCallable::UserDefined(method)))
         } else {
             self.get_super(name)
         }

@@ -27,6 +27,7 @@ pub struct Resolver {
 }
 
 impl Resolver {
+    #[must_use]
     pub fn new() -> Self {
         Resolver {
             scopes: Stack::new(),
@@ -44,6 +45,7 @@ impl Resolver {
         Ok(())
     }
 
+    #[must_use]
     pub fn into_locals(self) -> HashMap<Expr, usize> {
         self.locals
     }
@@ -74,7 +76,7 @@ impl Resolver {
                     .map(|m| m.insert("this".to_owned(), true));
                 for method in methods {
                     if let Stmt::Function(LoxCallable::UserDefined(f)) = method {
-                        if f.name.lexeme == INIT_METHOD.to_owned() {
+                        if f.name.lexeme == INIT_METHOD {
                             self.resolve_function(f, Some(FunctionType::Initializer))?;
                         } else {
                             self.resolve_function(f, Some(FunctionType::Method))?;
@@ -243,7 +245,7 @@ impl Resolver {
 
         self.begin_scope();
 
-        for param in function.parameters.iter() {
+        for param in &function.parameters {
             self.declare(param)?;
             self.define(param);
         }

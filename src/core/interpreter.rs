@@ -23,6 +23,7 @@ pub struct Environment {
 }
 
 impl Environment {
+    #[must_use]
     pub fn new() -> Self {
         Environment {
             values: HashMap::new(),
@@ -30,6 +31,7 @@ impl Environment {
         }
     }
 
+    #[must_use]
     pub fn from(enclosing: &Rc<Environment>) -> Self {
         Environment {
             values: HashMap::new(),
@@ -87,7 +89,7 @@ impl Environment {
     fn get_at(&self, distance: usize, name: &str) -> Result<Object> {
         self.ancestor(distance, |values| {
             values
-                .ok_or(RloxError::UndefinedVariable(name.to_owned()))
+                .ok_or_else(|| RloxError::UndefinedVariable(name.to_owned()))
                 .and_then(|e| e.get(name))
         })
     }
@@ -119,6 +121,7 @@ pub struct Interpreter {
 
 impl Interpreter {
     // TODO: Not using global environment like jlox. Maybe this is bad.
+    #[must_use]
     pub fn new() -> Self {
         let clock_fn = LoxCallable::Clock;
         let mut environment = Environment::new();
@@ -412,7 +415,7 @@ impl Interpreter {
                 })?;
 
                 let mut arguments = Vec::with_capacity(args.len());
-                for arg in args.iter() {
+                for arg in args {
                     arguments.push(self.evaluate(arg)?);
                 }
 
@@ -544,8 +547,8 @@ impl Interpreter {
                     // We need to determine if the super call is referring to a grandparent or
                     // ourselves. For now, this is done by checking the existence of a superclass.
                     if d.superclass.is_none() {
-                        if let Some(Object::Callable(LoxCallable::ClassInstance(c))) =
-                            self.environment.get(THIS).ok()
+                        if let Ok(Object::Callable(LoxCallable::ClassInstance(c))) =
+                            self.environment.get(THIS)
                         {
                             return c.get_super(&method.lexeme);
                         }
@@ -556,8 +559,8 @@ impl Interpreter {
                     while let Some(s) = tree_walker {
                         if let Some(m) = s.methods.iter().find(|m| m.name.lexeme == method.lexeme) {
                             let mut method = m.clone();
-                            if let Some(Object::Callable(LoxCallable::ClassInstance(c))) =
-                                self.environment.get(THIS).ok()
+                            if let Ok(Object::Callable(LoxCallable::ClassInstance(c))) =
+                                self.environment.get(THIS)
                             {
                                 method.this = Some(c);
                             } else {

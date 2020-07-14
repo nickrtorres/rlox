@@ -33,7 +33,7 @@ impl Scanner {
     }
 
     /// Returns the list of Tokens owned by self
-    pub fn scan_tokens<'s>(mut self) -> Result<Vec<Token>> {
+    pub fn scan_tokens(mut self) -> Result<Vec<Token>> {
         while let Some(c) = self.advance() {
             self.scan_token(c)?;
             self.scratch.clear();
@@ -160,7 +160,7 @@ impl Scanner {
         }
 
         // It should be impossible to get here if the string does not start with a \"
-        assert!(self.scratch.starts_with("\""));
+        assert!(self.scratch.starts_with('"'));
         let value = self
             .scratch
             .strip_prefix("\"")

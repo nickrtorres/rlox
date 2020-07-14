@@ -219,10 +219,10 @@ impl Parser {
     fn return_statement(&self) -> Result<Stmt> {
         let keyword = self.previous();
 
-        let value = if !self.check(TokenType::Semicolon) {
-            Some(*self.expression()?)
-        } else {
+        let value = if self.check(TokenType::Semicolon) {
             None
+        } else {
+            Some(*self.expression()?)
         };
 
         self.consume(TokenType::Semicolon)?;
@@ -240,18 +240,18 @@ impl Parser {
             Some(self.expression_statement()?)
         };
 
-        let condition = if !self.check(TokenType::Semicolon) {
-            *self.expression()?
-        } else {
+        let condition = if self.check(TokenType::Semicolon) {
             Expr::Literal(Object::Bool(true))
+        } else {
+            *self.expression()?
         };
 
         self.consume(TokenType::Semicolon)?;
 
-        let increment = if !self.check(TokenType::RightParen) {
-            Some(*self.expression()?)
-        } else {
+        let increment = if self.check(TokenType::RightParen) {
             None
+        } else {
+            Some(*self.expression()?)
         };
 
         self.consume(TokenType::RightParen)?;
@@ -616,10 +616,7 @@ impl Parser {
 
     fn previous(&self) -> Token {
         assert!(self.cursor.get() > 0);
-        self.tokens
-            .get(self.cursor.get() - 1)
-            .map(|t| t.clone())
-            .unwrap()
+        self.tokens.get(self.cursor.get() - 1).cloned().unwrap()
     }
 
     fn advance(&self) -> Option<Token> {
