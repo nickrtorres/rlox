@@ -122,17 +122,6 @@ pub enum TokenType {
     Default,
 }
 
-impl Eq for TokenType {}
-
-impl Hash for TokenType {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        match self {
-            Self::Number(f) => f.to_bits().hash(state),
-            other => other.to_string().hash(state),
-        }
-    }
-}
-
 impl TokenType {
     /// TODO rename this
     #[must_use]
@@ -155,6 +144,17 @@ impl TokenType {
             "var" => TokenType::Var,
             "while" => TokenType::While,
             _ => TokenType::Identifier,
+        }
+    }
+}
+
+impl Eq for TokenType {}
+
+impl Hash for TokenType {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            Self::Number(f) => f.to_bits().hash(state),
+            other => other.to_string().hash(state),
         }
     }
 }
@@ -237,27 +237,6 @@ pub enum LoxCallable {
     ClassInstance(LoxInstance),
 }
 
-#[derive(Eq, Hash, PartialEq, Debug, Clone)]
-pub struct LoxClass {
-    name: String,
-    methods: Vec<FunctionStmt>,
-    superclass: Option<Box<LoxClass>>,
-}
-
-impl LoxClass {
-    fn new(name: String, superclass: Option<Box<LoxClass>>) -> Self {
-        LoxClass {
-            name: name,
-            methods: Vec::new(),
-            superclass,
-        }
-    }
-
-    fn add_method(&mut self, method: FunctionStmt) {
-        self.methods.push(method)
-    }
-}
-
 impl LoxCallable {
     // TODO clean this up
     pub fn arity(&self) -> usize {
@@ -280,6 +259,27 @@ impl LoxCallable {
             }
             Self::Clock | Self::ClassInstance(_) => 0,
         }
+    }
+}
+
+#[derive(Eq, Hash, PartialEq, Debug, Clone)]
+pub struct LoxClass {
+    name: String,
+    methods: Vec<FunctionStmt>,
+    superclass: Option<Box<LoxClass>>,
+}
+
+impl LoxClass {
+    fn new(name: String, superclass: Option<Box<LoxClass>>) -> Self {
+        LoxClass {
+            name: name,
+            methods: Vec::new(),
+            superclass,
+        }
+    }
+
+    fn add_method(&mut self, method: FunctionStmt) {
+        self.methods.push(method)
     }
 }
 
