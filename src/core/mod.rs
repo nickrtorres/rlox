@@ -360,6 +360,17 @@ pub enum LoxCallable {
     ClassInstance(LoxInstance),
 }
 
+impl fmt::Display for LoxCallable {
+    fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
+        match self {
+            Self::Clock => write!(f, "<native fn>"),
+            Self::ClassDefinition(n) => write!(f, "{}", n),
+            Self::ClassInstance(n) => write!(f, "{}", n),
+            Self::UserDefined(n) => write!(f, "{}", n),
+        }
+    }
+}
+
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]
 pub struct LoxClass {
     name: String,
@@ -503,12 +514,7 @@ impl fmt::Display for Object {
             Object::Number(n) => write!(f, "{}", n),
             Object::String(s) => write!(f, "{}", s),
             Object::Time(t) => write!(f, "{}", t),
-            Object::Callable(c) => match c {
-                LoxCallable::Clock => write!(f, "<native fn>"),
-                LoxCallable::ClassDefinition(n) => write!(f, "{}", n),
-                LoxCallable::ClassInstance(n) => write!(f, "{}", n),
-                LoxCallable::UserDefined(n) => write!(f, "{}", n),
-            },
+            Object::Callable(c) => write!(f, "{}", c),
         }
     }
 }
