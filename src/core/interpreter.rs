@@ -544,26 +544,24 @@ impl Interpreter {
             Expr::Super(_, method) => {
                 let superclass = self.look_up_variable(SUPER, expr)?;
                 if let Object::Callable(LoxCallable::ClassDefinition(d)) = superclass {
+                    // A 'this' pointer must exist in our environment since super is only valid in
+                    // a class context. The resolver guarentees that this invariant will be upheld
+                    // statically. It is a programming error if the 'this' pointer does not exist
+                    // at this point.
+                    let this = self
+                        .environment
+                        .get(THIS)
+                        .unwrap()
+                        .into_callable()
+                        .into_instance();
+
                     // We need to determine if the super call is referring to a grandparent or
                     // ourselves. For now, this is done by checking the existence of a superclass.
                     if d.superclass.is_none() {
-                        if let Ok(Object::Callable(LoxCallable::ClassInstance(c))) =
-                            self.environment.get(THIS)
-                        {
-                            return c.get_super(&method.lexeme);
-                        }
-                    }
-
-                    if let Some(method) = find_super_method(d.walker(), &method.lexeme) {
+                        return this.get_super(&method.lexeme);
+                    } else if let Some(method) = find_super_method(d.walker(), &method.lexeme) {
                         let mut method = method.clone();
-                        method.this = if let Object::Callable(LoxCallable::ClassInstance(c)) =
-                            self.environment.get(THIS).unwrap()
-                        {
-                            Some(c)
-                        } else {
-                            panic!("there must be a this instance for a class method");
-                        };
-
+                        method.this = Some(this);
                         return Ok(Object::Callable(LoxCallable::UserDefined(method)));
                     }
                 }

@@ -215,6 +215,16 @@ pub enum Object {
     Time(u128),
 }
 
+impl Object {
+    fn into_callable(self) -> LoxCallable {
+        if let Self::Callable(c) = self {
+            c
+        } else {
+            panic!("attempted to get a callable from a non-callable variant");
+        }
+    }
+}
+
 impl Eq for Object {}
 
 impl Hash for Object {
@@ -260,6 +270,14 @@ impl LoxCallable {
                 }
             }
             Self::Clock | Self::ClassInstance(_) => 0,
+        }
+    }
+
+    fn into_instance(self) -> LoxInstance {
+        if let Self::ClassInstance(c) = self {
+            c
+        } else {
+            panic!("attempted to get an instance from a non-instance variant");
         }
     }
 }
