@@ -335,7 +335,7 @@ impl LoxClass {
     #[must_use]
     fn walker(&self) -> LoxClassWalker {
         LoxClassWalker {
-            superclass: self.superclass.as_ref().map(|s| &**s),
+            superclass: self.superclass.as_deref(),
         }
     }
 }
@@ -359,7 +359,7 @@ impl<'a> Walk<'a> for LoxClassWalker<'a> {
         let data = self.superclass;
         self.superclass = self
             .superclass
-            .and_then(|outer| outer.superclass.as_ref().map(|inner| &**inner));
+            .and_then(|outer| outer.superclass.as_deref());
         data
     }
 }
@@ -445,7 +445,7 @@ impl LoxInstance {
     }
 
     fn walker(&self) -> LoxClassWalker {
-        LoxClassWalker::new(self.superclass.as_ref().map(|s| &**s))
+        LoxClassWalker::new(self.superclass.as_deref())
     }
 }
 
@@ -716,7 +716,7 @@ mod tests {
             let parent = LoxClass::new("parent".to_owned(), Some(Box::new(grandparent.clone())));
             let child = LoxClass::new("child".to_owned(), Some(Box::new(parent.clone())));
 
-            let mut walker = LoxClassWalker::new(child.superclass.as_ref().map(|s| &**s));
+            let mut walker = LoxClassWalker::new(child.superclass.as_deref());
 
             assert_eq!(Some(&parent), walker.walk());
             assert_eq!(Some(&grandparent), walker.walk());
@@ -730,7 +730,7 @@ mod tests {
             let child = LoxClass::new("child".to_owned(), Some(Box::new(parent.clone())));
 
             let ancestors: Vec<&LoxClass> =
-                LoxClassWalker::new(child.superclass.as_ref().map(|s| &**s)).collect();
+                LoxClassWalker::new(child.superclass.as_deref()).collect();
 
             assert_eq!(vec![&parent, &grandparent], ancestors);
         }
