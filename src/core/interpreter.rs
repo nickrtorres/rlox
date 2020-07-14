@@ -190,9 +190,7 @@ impl Interpreter {
 
                 let klass = Object::Callable(LoxCallable::ClassDefinition(klass));
                 fail_if_not_unique(&self.environment);
-                Rc::get_mut(&mut self.environment)
-                    .map(|e| e.define(name.lexeme.clone(), klass))
-                    .ok_or_else(|| unreachable!())?;
+                self.environment_mut().define(name.lexeme.clone(), klass);
             }
             Stmt::Expression(expr) => {
                 self.evaluate(&expr)?;
@@ -221,14 +219,11 @@ impl Interpreter {
                     v => v,
                 };
 
-                Rc::get_mut(&mut self.environment)
-                    .map(|e| e.define(token.lexeme.clone(), value))
-                    .ok_or_else(|| unreachable!())?;
+                self.environment_mut().define(token.lexeme.clone(), value);
             }
             Stmt::Var(token, None) => {
-                Rc::get_mut(&mut self.environment)
-                    .map(|e| e.define(token.lexeme.clone(), Object::Nil))
-                    .ok_or_else(|| unreachable!())?;
+                self.environment_mut()
+                    .define(token.lexeme.clone(), Object::Nil);
             }
             Stmt::While(condition, stmt) => {
                 while let Object::Bool(true) = self.evaluate(&condition)? {
@@ -242,9 +237,8 @@ impl Interpreter {
                 };
 
                 fail_if_not_unique(&self.environment);
-                Rc::get_mut(&mut self.environment)
-                    .map(|e| e.define(name.to_owned(), Object::Callable(f.clone())))
-                    .ok_or_else(|| unreachable!())?;
+                self.environment_mut()
+                    .define(name.to_owned(), Object::Callable(f.clone()));
             }
             Stmt::Return(_, value) => {
                 let mut v = Object::Nil;
@@ -285,11 +279,7 @@ impl Interpreter {
 
         if let Some(name) = callee {
             let this = self.environment.get(THIS)?;
-            Rc::get_mut(&mut self.environment)
-                .ok_or_else(|| {
-                    unreachable!();
-                })
-                .and_then(|e| e.assign(name, this))?;
+            self.environment_mut().assign(name, this)?;
         }
         fail_if_not_unique(&self.environment);
         Rc::get_mut(&mut self.environment)
@@ -302,9 +292,7 @@ impl Interpreter {
         match expr {
             Expr::Assign(token, expr) => {
                 let value = self.evaluate(expr)?;
-                Rc::get_mut(&mut self.environment)
-                    .ok_or_else(|| unreachable!())
-                    .and_then(|e| e.assign(&token.lexeme, value))
+                self.environment_mut().assign(&token.lexeme, value)
             }
             Expr::Binary(left_expr, token, right_expr) => {
                 let left = self.evaluate(left_expr)?;
@@ -445,25 +433,17 @@ impl Interpreter {
 
                         // The 'this' pointer needs to be defined in our parent environment.
                         if let Some(instance) = f.this {
-                            Rc::get_mut(&mut self.environment)
-                                .map(|e| {
-                                    e.define(
-                                        THIS.to_owned(),
-                                        Object::Callable(LoxCallable::ClassInstance(instance)),
-                                    )
-                                })
-                                .ok_or_else(|| unreachable!())?;
+                            self.environment_mut().define(
+                                THIS.to_owned(),
+                                Object::Callable(LoxCallable::ClassInstance(instance)),
+                            );
                         }
 
                         if let Some(superclass) = f.superclass {
-                            Rc::get_mut(&mut self.environment)
-                                .map(|e| {
-                                    e.define(
-                                        SUPER.to_owned(),
-                                        Object::Callable(LoxCallable::ClassDefinition(superclass)),
-                                    )
-                                })
-                                .ok_or_else(|| unreachable!())?;
+                            self.environment_mut().define(
+                                SUPER.to_owned(),
+                                Object::Callable(LoxCallable::ClassDefinition(superclass)),
+                            );
                         }
 
                         let mut environment = Environment::from(&self.environment);
@@ -533,15 +513,10 @@ impl Interpreter {
                     // Note: jlox relies on implicit mutation of the environment.  rlox's
                     // environment hands out copies of objects rather than references.  We need to
                     // manually update the environment after setting a field on a variable.
-                    Rc::get_mut(&mut self.environment)
-                        .and_then(|e| {
-                            e.assign(
-                                &instance_name,
-                                Object::Callable(LoxCallable::ClassInstance(instance.clone())),
-                            )
-                            .ok()
-                        })
-                        .ok_or_else(|| unreachable!())?;
+                    self.environment_mut().assign(
+                        &instance_name,
+                        Object::Callable(LoxCallable::ClassInstance(instance.clone())),
+                    )?;
 
                     // We just added this value. It must be `Ok`
                     match instance.get(&name.lexeme) {
@@ -597,6 +572,16 @@ impl Interpreter {
 
     pub fn resolve(&mut self, map: HashMap<Expr, usize>) {
         self.locals.extend(map.into_iter());
+    }
+
+    /// Gets a mutable reference to `self's` environment
+    ///
+    /// # Panics
+    /// `environment_mut` panics if Rc::get_mut fails. It is not a valid runtime error for
+    /// Rc::get_mut to fail. It is the responsibility of the programmer to ensure that there are no
+    /// other clients of the Rc pointer.
+    fn environment_mut<'a>(&'a mut self) -> &'a mut Environment {
+        Rc::get_mut(&mut self.environment).unwrap()
     }
 }
 
