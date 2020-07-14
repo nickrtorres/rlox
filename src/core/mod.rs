@@ -216,7 +216,14 @@ pub enum Object {
 }
 
 impl Object {
-    fn into_callable(self) -> LoxCallable {
+    fn into_callable(self) -> Option<LoxCallable> {
+        match self {
+            Self::Callable(c) => Some(c),
+            _ => None,
+        }
+    }
+
+    fn into_callable_unchecked(self) -> LoxCallable {
         if let Self::Callable(c) = self {
             c
         } else {
@@ -273,11 +280,33 @@ impl LoxCallable {
         }
     }
 
-    fn into_instance(self) -> LoxInstance {
+    fn into_instance(self) -> Option<LoxInstance> {
+        match self {
+            Self::ClassInstance(c) => Some(c),
+            _ => None,
+        }
+    }
+
+    fn into_instance_unchecked(self) -> LoxInstance {
         if let Self::ClassInstance(c) = self {
             c
         } else {
             panic!("attempted to get an instance from a non-instance variant");
+        }
+    }
+
+    fn into_definition(self) -> Option<LoxClass> {
+        match self {
+            Self::ClassDefinition(d) => Some(d),
+            _ => None,
+        }
+    }
+
+    fn into_definition_unchecked(self) -> LoxClass {
+        if let Self::ClassDefinition(d) = self {
+            d
+        } else {
+            panic!("attempted to get an definition from a non-definition variant");
         }
     }
 }

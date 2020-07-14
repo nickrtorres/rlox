@@ -160,7 +160,11 @@ impl Interpreter {
             }
             Stmt::Class(name, superclass, methods) => {
                 let superclass: Option<Box<LoxClass>> = if let Some(s) = superclass {
-                    if let Object::Callable(LoxCallable::ClassDefinition(s)) = self.evaluate(s)? {
+                    if let Some(s) = self
+                        .evaluate(s)?
+                        .into_callable()
+                        .and_then(|c| c.into_definition())
+                    {
                         Some(Box::new(s))
                     } else {
                         return Err(RloxError::InheritNonClass);
@@ -382,7 +386,11 @@ impl Interpreter {
                 self.evaluate(right)
             }
             Expr::Get(object, name) => {
-                if let Object::Callable(LoxCallable::ClassInstance(c)) = self.evaluate(object)? {
+                if let Some(c) = self
+                    .evaluate(object)?
+                    .into_callable()
+                    .and_then(|c| c.into_instance())
+                {
                     c.get(&name.lexeme)
                 } else {
                     Err(RloxError::PropertyAccessOnNonInstance)
@@ -485,8 +493,10 @@ impl Interpreter {
                     LoxCallable::ClassDefinition(class) => {
                         let superclass = class.superclass.clone();
                         let instance = LoxInstance::new(class, superclass);
-                        if let Ok(Object::Callable(LoxCallable::UserDefined(f))) =
-                            instance.get("init")
+                        if let Some(LoxCallable::UserDefined(f)) = instance
+                            .get(INIT_METHOD)
+                            .ok()
+                            .and_then(|c| c.into_callable())
                         {
                             let init_expr = Box::new(Expr::Call(
                                 Box::new(Expr::Literal(Object::Callable(
@@ -512,8 +522,10 @@ impl Interpreter {
                     _ => Err(RloxError::PropertyAccessOnNonInstance),
                 }?;
 
-                if let Object::Callable(LoxCallable::ClassInstance(mut instance)) =
-                    self.evaluate(object)?
+                if let Some(mut instance) = self
+                    .evaluate(object)?
+                    .into_callable()
+                    .and_then(|c| c.into_instance())
                 {
                     let value = self.evaluate(value)?;
                     instance.set(&name.lexeme, value);
@@ -542,32 +554,36 @@ impl Interpreter {
             }
             Expr::This(keyword) => Ok(self.look_up_variable(&keyword.lexeme, expr)?),
             Expr::Super(_, method) => {
-                let superclass = self.look_up_variable(SUPER, expr)?;
-                if let Object::Callable(LoxCallable::ClassDefinition(d)) = superclass {
-                    // A 'this' pointer must exist in our environment since super is only valid in
-                    // a class context. The resolver guarentees that this invariant will be upheld
-                    // statically. It is a programming error if the 'this' pointer does not exist
-                    // at this point.
-                    let this = self
-                        .environment
-                        .get(THIS)
-                        .unwrap()
-                        .into_callable()
-                        .into_instance();
+                let superclass = self
+                    .look_up_variable(SUPER, expr)
+                    .unwrap()
+                    .into_callable_unchecked()
+                    .into_definition_unchecked();
 
-                    // We need to determine if the super call is referring to a grandparent or
-                    // ourselves. For now, this is done by checking the existence of a superclass.
-                    if d.superclass.is_none() {
-                        return this.get_super(&method.lexeme);
-                    } else if let Some(method) = find_super_method(d.walker(), &method.lexeme) {
-                        let mut method = method.clone();
-                        method.this = Some(this);
-                        return Ok(Object::Callable(LoxCallable::UserDefined(method)));
-                    }
+                // A 'this' pointer must exist in our environment since super is only valid in
+                // a class context. The resolver guarentees that this invariant will be upheld
+                // statically. It is a programming error if the 'this' pointer does not exist
+                // at this point. This is not a valid runtime error.
+                let this = self
+                    .environment
+                    .get(THIS)
+                    .unwrap()
+                    .into_callable_unchecked()
+                    .into_instance_unchecked();
+
+                // We need to determine if the super call is referring to a grandparent or
+                // ourselves. For now, this is done by checking the existence of a superclass.
+                if superclass.superclass.is_none() {
+                    return this.get_super(&method.lexeme);
+                } else if let Some(method) = find_super_method(superclass.walker(), &method.lexeme)
+                {
+                    let mut method = method.clone();
+                    method.this = Some(this);
+                    return Ok(Object::Callable(LoxCallable::UserDefined(method)));
+                } else {
+                    // TODO make new error: NoSuperMethod
+                    Err(RloxError::UndefinedProperty(method.lexeme.to_owned()))
                 }
-
-                // TODO make new error: NoSuperMethod
-                Err(RloxError::UndefinedProperty(method.lexeme.to_owned()))
             }
         }
     }
