@@ -284,6 +284,45 @@ impl LoxClass {
     fn add_method(&mut self, method: FunctionStmt) {
         self.methods.push(method)
     }
+
+    #[must_use]
+    fn walker(&self) -> LoxClassWalker {
+        LoxClassWalker {
+            superclass: self.superclass.as_ref().map(|s| &**s),
+        }
+    }
+}
+
+pub struct LoxClassWalker<'a> {
+    superclass: Option<&'a LoxClass>,
+}
+
+impl<'a> LoxClassWalker<'a> {
+    fn new(superclass: Option<&'a LoxClass>) -> Self {
+        LoxClassWalker { superclass }
+    }
+}
+
+pub trait Walk<'a> {
+    fn walk(&mut self) -> Option<&'a LoxClass>;
+}
+
+impl<'a> Walk<'a> for LoxClassWalker<'a> {
+    fn walk(&mut self) -> Option<&'a LoxClass> {
+        let data = self.superclass;
+        self.superclass = self
+            .superclass
+            .and_then(|outer| outer.superclass.as_ref().map(|inner| &**inner));
+        data
+    }
+}
+
+impl<'a> Iterator for LoxClassWalker<'a> {
+    type Item = &'a LoxClass;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.walk()
+    }
 }
 
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]
@@ -335,16 +374,13 @@ impl LoxInstance {
     /// superclass list until we (1) find the method we're looking for or (2)
     /// exhaust the candidate list.
     fn get_super(&self, name: &str) -> Result<Object> {
-        let mut superclass = self.superclass.clone();
-        while let Some(candidate) = superclass {
+        for candidate in self.walker() {
             if let Some(method) = candidate.methods.iter().find(|e| e.name.lexeme == name) {
                 let mut method = method.clone();
                 method.this = Some(self.clone());
                 method.superclass = self.superclass.clone().map(|s| *s);
                 return Ok(Object::Callable(LoxCallable::UserDefined(method)));
             }
-
-            superclass = candidate.superclass;
         }
 
         Err(RloxError::UndefinedProperty(name.to_owned()))
@@ -361,6 +397,10 @@ impl LoxInstance {
             Some(e) => *e = property,
             None => self.fields.push(property),
         };
+    }
+
+    fn walker(&self) -> LoxClassWalker {
+        LoxClassWalker::new(self.superclass.as_ref().map(|s| &**s))
     }
 }
 
@@ -595,6 +635,34 @@ mod tests {
                 Ok(Object::Callable(LoxCallable::UserDefined(method))),
                 instance.get("f")
             );
+        }
+    }
+    mod walker {
+        use super::*;
+
+        #[test]
+        fn it_can_walk_an_inheritance_tree() {
+            let grandparent = LoxClass::new("grandparent".to_owned(), None);
+            let parent = LoxClass::new("parent".to_owned(), Some(Box::new(grandparent.clone())));
+            let child = LoxClass::new("child".to_owned(), Some(Box::new(parent.clone())));
+
+            let mut walker = LoxClassWalker::new(child.superclass.as_ref().map(|s| &**s));
+
+            assert_eq!(Some(&parent), walker.walk());
+            assert_eq!(Some(&grandparent), walker.walk());
+            assert_eq!(None, walker.walk());
+        }
+
+        #[test]
+        fn it_is_iterable() {
+            let grandparent = LoxClass::new("grandparent".to_owned(), None);
+            let parent = LoxClass::new("parent".to_owned(), Some(Box::new(grandparent.clone())));
+            let child = LoxClass::new("child".to_owned(), Some(Box::new(parent.clone())));
+
+            let ancestors: Vec<&LoxClass> =
+                LoxClassWalker::new(child.superclass.as_ref().map(|s| &**s)).collect();
+
+            assert_eq!(vec![&parent, &grandparent], ancestors);
         }
     }
 }

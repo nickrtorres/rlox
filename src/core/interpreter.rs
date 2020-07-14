@@ -555,9 +555,12 @@ impl Interpreter {
                     }
 
                     // Walk up the tree
-                    let mut tree_walker = d.superclass;
-                    while let Some(s) = tree_walker {
-                        if let Some(m) = s.methods.iter().find(|m| m.name.lexeme == method.lexeme) {
+                    for candidate in d.walker() {
+                        if let Some(m) = candidate
+                            .methods
+                            .iter()
+                            .find(|m| m.name.lexeme == method.lexeme)
+                        {
                             let mut method = m.clone();
                             if let Ok(Object::Callable(LoxCallable::ClassInstance(c))) =
                                 self.environment.get(THIS)
@@ -567,8 +570,6 @@ impl Interpreter {
                                 unreachable!();
                             }
                             return Ok(Object::Callable(LoxCallable::UserDefined(method)));
-                        } else {
-                            tree_walker = s.superclass;
                         }
                     }
                 }
