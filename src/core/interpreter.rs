@@ -76,14 +76,19 @@ impl Environment {
         }
     }
 
-    fn flatten(&mut self) -> Result<()> {
-        let enclosing = self.enclosing.take().ok_or_else(|| unreachable!())?;
+    /// Collapses the environment 1 level.
+    ///
+    /// `flatten` is infallible. It is the responsibility of the programmer to
+    /// ensure that (1) the current environment has an enclosing environment and
+    /// (2) the enclosing environment is a unique Rc. Failure to meet the
+    /// conditions above will crash rlox.
+    fn flatten(&mut self) {
+        assert!(self.enclosing.is_some());
+        let enclosing = self.enclosing.take().unwrap();
 
         // we're about to consume enclosing! make sure there aren't any other users
         fail_if_not_unique(&enclosing);
-        *self = Rc::try_unwrap(enclosing).map_err(|_| unreachable!())?;
-
-        Ok(())
+        *self = Rc::try_unwrap(enclosing).expect("Enclosing must be unique!");
     }
 
     fn get_at(&self, distance: usize, name: &str) -> Result<Object> {
@@ -267,9 +272,7 @@ impl Interpreter {
                     // value to the caller
                     RloxError::Return(v) => {
                         fail_if_not_unique(&self.environment);
-                        Rc::get_mut(&mut self.environment)
-                            .ok_or_else(|| unreachable!())
-                            .and_then(Environment::flatten)?;
+                        self.environment_mut().flatten();
                         return Err(RloxError::Return(v));
                     }
                     _ => return Err(e),
@@ -282,9 +285,7 @@ impl Interpreter {
             self.environment_mut().assign(name, this)?;
         }
         fail_if_not_unique(&self.environment);
-        Rc::get_mut(&mut self.environment)
-            .ok_or_else(|| unreachable!())
-            .and_then(Environment::flatten)?;
+        self.environment_mut().flatten();
         Ok(())
     }
 
