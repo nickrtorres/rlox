@@ -1,12 +1,11 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::mem;
-use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::{
     find_super_method, Expr, LoxCallable, LoxClass, LoxInstance, Object, Result, RloxError, Stmt,
-    Token, TokenType, INIT_METHOD,
+    Token, TokenType, Walk, INIT_METHOD,
 };
 
 const THIS: &str = "this";
@@ -15,7 +14,7 @@ const SUPER: &str = "super";
 #[derive(Debug, Clone)]
 pub struct Environment {
     values: HashMap<String, Object>,
-    enclosing: Option<Rc<Environment>>,
+    enclosing: Option<Box<Environment>>,
 }
 
 impl Environment {
@@ -29,7 +28,6 @@ impl Environment {
 
     pub fn define(&mut self, name: String, value: Object) {
         self.values.insert(name, value);
-        assert!(!self.values.is_empty());
     }
 
     fn get(&self, name: &str) -> Result<Object> {
@@ -49,9 +47,7 @@ impl Environment {
         match self.values.entry(name.to_owned()) {
             Entry::Vacant(_) => {
                 if let Some(e) = &mut self.enclosing {
-                    assert!(Rc::strong_count(e) <= 1);
-                    assert!(Rc::weak_count(e) <= 1);
-                    return Rc::get_mut(e).unwrap().assign(name, value);
+                    return e.assign(name, value);
                 }
 
                 Err(RloxError::UndefinedVariable(name.to_owned()))
@@ -105,7 +101,7 @@ impl Environment {
     /// # Note
     /// This is the inverse of `Environment::lower`.
     pub fn raise(&mut self) {
-        self.enclosing = Some(Rc::from(Environment {
+        self.enclosing = Some(Box::new(Environment {
             values: mem::replace(&mut self.values, HashMap::new()),
             enclosing: self.enclosing.take(),
         }));
@@ -164,36 +160,50 @@ impl Environment {
         assert!(self.enclosing.is_some());
         let enclosing = self.enclosing.take().unwrap();
 
-        // we're about to consume enclosing! make sure there aren't any other users
-        assert!(Rc::strong_count(&enclosing) <= 1);
-        assert!(Rc::weak_count(&enclosing) <= 1);
-        *self = Rc::try_unwrap(enclosing).expect("Enclosing must be unique!");
+        *self = *enclosing;
     }
 
-    fn get_at(&self, distance: usize, name: &str) -> Result<Object> {
-        self.ancestor(distance, |values| {
-            values
-                .ok_or_else(|| RloxError::UndefinedVariable(name.to_owned()))
-                .and_then(|e| e.get(name))
-        })
-    }
-
-    fn ancestor<F: FnOnce(Option<Rc<Environment>>) -> Result<Object>>(
-        &self,
-        distance: usize,
-        f: F,
-    ) -> Result<Object> {
-        let mut environment: Option<Rc<Environment>> = Some(Rc::new(self.clone()));
-        for _ in 0..(distance) {
-            assert!(environment
-                .as_ref()
-                .map_or(false, |e| e.enclosing.is_some()));
-
-            // TODO: yikes!
-            environment = environment.map(|e| Rc::clone(&e.enclosing.as_ref().unwrap()))
+    /// Gets `name` in environment at `distance`
+    ///
+    /// Walks through the chain of `self`'s environment to distance and then searches for `name`.
+    ///
+    /// # Panics
+    /// Panics if `distance` is unreachable.
+    pub fn get_at(&self, distance: usize, name: &str) -> Result<Object> {
+        for (i, env) in self.walker().enumerate() {
+            if i == distance {
+                return env.get(name);
+            }
         }
 
-        f(environment)
+        unreachable!(format!("distance: {} is unreachable!", distance));
+    }
+
+    fn walker(&self) -> EnvironmentWalker {
+        EnvironmentWalker {
+            current: Some(self),
+        }
+    }
+}
+
+struct EnvironmentWalker<'a> {
+    current: Option<&'a Environment>,
+}
+
+impl<'a> Walk<'a> for EnvironmentWalker<'a> {
+    type Item = &'a Environment;
+    fn walk(&mut self) -> Option<Self::Item> {
+        let data = self.current;
+        self.current = self.current.and_then(|e| e.enclosing.as_deref());
+        data
+    }
+}
+
+impl<'a> Iterator for EnvironmentWalker<'a> {
+    type Item = &'a Environment;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.walk()
     }
 }
 
