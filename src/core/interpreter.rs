@@ -22,7 +22,7 @@ impl Interpreter {
         let mut environment = Environment::new();
         environment.define("clock".to_owned(), Object::Callable(LoxCallable::Clock));
         Interpreter {
-            environment: environment,
+            environment,
             locals: HashMap::new(),
         }
     }
