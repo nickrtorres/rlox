@@ -551,10 +551,7 @@ impl Interpreter {
                     )?;
 
                     // We just added this value. It must be `Ok`
-                    match instance.get(&name.lexeme) {
-                        Ok(v) => Ok(v),
-                        Err(e) => unreachable!("{:?}", e),
-                    }
+                    Ok(instance.get(&name.lexeme).unwrap())
                 } else {
                     Err(RloxError::PropertyAccessOnNonInstance)
                 }
