@@ -1,5 +1,6 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::mem;
 use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -28,14 +29,6 @@ impl Environment {
         Environment {
             values: HashMap::new(),
             enclosing: None,
-        }
-    }
-
-    #[must_use]
-    pub fn from(enclosing: &Rc<Environment>) -> Self {
-        Environment {
-            values: HashMap::new(),
-            enclosing: Some(Rc::clone(enclosing)),
         }
     }
 
@@ -72,6 +65,51 @@ impl Environment {
                 Ok(e.get().clone())
             }
         }
+    }
+
+    /// Raises an environment up a single level
+    ///
+    /// Given an arbitrary environment (`e`)
+    /// ```notrust
+    ///     +---------------+
+    ///     | e             |
+    ///     | =             |
+    ///     | values: {     |
+    ///     |   // ...      |
+    ///     |   // ...      |
+    ///     |   // ...      |
+    ///     | }             |
+    ///     |               |
+    ///     | enclosing: ---+------> // ...
+    ///     +---------------+       
+    /// ```
+    ///
+    /// A call of `e.raise()` will raise the environment a single level:
+    /// ```notrust
+    ///
+    ///     +-------------------------+
+    ///     | ** New Environment **   |
+    ///     | =====================   |
+    ///     | values: HashMap::new(), |
+    ///     | enclosing: -------------+----->+---------------+
+    ///     +-------------------------+      | e             |
+    ///                                      | =             |               
+    ///                                      | values: {     |               
+    ///                                      |   // ...      |               
+    ///                                      |   // ...      |               
+    ///                                      |   // ...      |               
+    ///                                      | }             |               
+    ///                                      |               |               
+    ///                                      | enclosing: ---+------> // ...
+    ///                                      +---------------+               
+    ///                       
+    ///                       
+    /// ```
+    pub fn raise(&mut self) {
+        self.enclosing = Some(Rc::from(Environment {
+            values: mem::replace(&mut self.values, HashMap::new()),
+            enclosing: self.enclosing.take(),
+        }));
     }
 
     /// Collapses the environment 1 level.
@@ -158,7 +196,7 @@ impl Environment {
 
 #[derive(Debug)]
 pub struct Interpreter {
-    pub environment: Rc<Environment>,
+    pub environment: Environment,
     pub locals: HashMap<Expr, usize>,
 }
 
@@ -170,7 +208,7 @@ impl Interpreter {
         let mut environment = Environment::new();
         environment.define("clock".to_owned(), Object::Callable(clock_fn));
         Interpreter {
-            environment: Rc::new(environment),
+            environment: environment,
             locals: HashMap::new(),
         }
     }
@@ -186,8 +224,8 @@ impl Interpreter {
     fn execute(&mut self, statement: &Stmt) -> Result<()> {
         match statement {
             Stmt::Block(statements) => {
-                fail_if_not_unique(&self.environment);
-                self.execute_block(statements, Environment::from(&self.environment), None)?;
+                self.environment.raise();
+                self.execute_block(statements, None)?;
             }
             Stmt::If(expr, then_branch, else_branch) => {
                 // lox only considers false and nil falsey. Every other object
@@ -226,8 +264,7 @@ impl Interpreter {
                 }
 
                 let klass = Object::Callable(LoxCallable::ClassDefinition(klass));
-                fail_if_not_unique(&self.environment);
-                self.environment_mut().define(name.lexeme.clone(), klass);
+                self.environment.define(name.lexeme.clone(), klass);
             }
             Stmt::Expression(expr) => {
                 self.evaluate(&expr)?;
@@ -256,11 +293,10 @@ impl Interpreter {
                     v => v,
                 };
 
-                self.environment_mut().define(token.lexeme.clone(), value);
+                self.environment.define(token.lexeme.clone(), value);
             }
             Stmt::Var(token, None) => {
-                self.environment_mut()
-                    .define(token.lexeme.clone(), Object::Nil);
+                self.environment.define(token.lexeme.clone(), Object::Nil);
             }
             Stmt::While(condition, stmt) => {
                 while let Object::Bool(true) = self.evaluate(&condition)? {
@@ -270,8 +306,7 @@ impl Interpreter {
             Stmt::Function(f) => {
                 let name = &f.name.lexeme;
 
-                fail_if_not_unique(&self.environment);
-                self.environment_mut().define(
+                self.environment.define(
                     name.to_owned(),
                     Object::Callable(LoxCallable::UserDefined(f.clone())),
                 );
@@ -289,21 +324,14 @@ impl Interpreter {
         Ok(())
     }
 
-    pub fn execute_block(
-        &mut self,
-        statements: &[Stmt],
-        environment: Environment,
-        callee: Option<&str>,
-    ) -> Result<()> {
-        self.environment = Rc::new(environment);
+    pub fn execute_block(&mut self, statements: &[Stmt], callee: Option<&str>) -> Result<()> {
         for statement in statements {
             if let Err(e) = self.execute(statement) {
                 match e {
                     // Make sure to flatten our environment before returning a
                     // value to the caller
                     RloxError::Return(v) => {
-                        fail_if_not_unique(&self.environment);
-                        self.environment_mut().flatten();
+                        self.environment.flatten();
                         return Err(RloxError::Return(v));
                     }
                     _ => return Err(e),
@@ -313,10 +341,9 @@ impl Interpreter {
 
         if let Some(name) = callee {
             let this = self.environment.get(THIS)?;
-            self.environment_mut().assign(name, this)?;
+            self.environment.assign(name, this)?;
         }
-        fail_if_not_unique(&self.environment);
-        self.environment_mut().flatten();
+        self.environment.flatten();
         Ok(())
     }
 
@@ -324,7 +351,7 @@ impl Interpreter {
         match expr {
             Expr::Assign(token, expr) => {
                 let value = self.evaluate(expr)?;
-                self.environment_mut().assign(&token.lexeme, value)
+                self.environment.assign(&token.lexeme, value)
             }
             Expr::Binary(left_expr, token, right_expr) => {
                 let left = self.evaluate(left_expr)?;
@@ -465,27 +492,27 @@ impl Interpreter {
 
                         // The 'this' pointer needs to be defined in our parent environment.
                         if let Some(instance) = f.this {
-                            self.environment_mut().define(
+                            self.environment.define(
                                 THIS.to_owned(),
                                 Object::Callable(LoxCallable::ClassInstance(instance)),
                             );
                         }
 
                         if let Some(superclass) = f.superclass {
-                            self.environment_mut().define(
+                            self.environment.define(
                                 SUPER.to_owned(),
                                 Object::Callable(LoxCallable::ClassDefinition(superclass)),
                             );
                         }
 
-                        let mut environment = Environment::from(&self.environment);
+                        self.environment.raise();
 
                         // TODO: don't clone
                         for (param, arg) in f.parameters.iter().zip(arguments.iter()) {
-                            environment.define(param.lexeme.clone(), arg.clone())
+                            self.environment.define(param.lexeme.clone(), arg.clone())
                         }
 
-                        if let Err(e) = self.execute_block(&f.body, environment, caller_name) {
+                        if let Err(e) = self.execute_block(&f.body, caller_name) {
                             match e {
                                 RloxError::Return(v) => {
                                     if f.initializer {
@@ -545,7 +572,7 @@ impl Interpreter {
                     // Note: jlox relies on implicit mutation of the environment.  rlox's
                     // environment hands out copies of objects rather than references.  We need to
                     // manually update the environment after setting a field on a variable.
-                    self.environment_mut().assign(
+                    self.environment.assign(
                         &instance_name,
                         Object::Callable(LoxCallable::ClassInstance(instance.clone())),
                     )?;
@@ -601,16 +628,6 @@ impl Interpreter {
 
     pub fn resolve(&mut self, map: HashMap<Expr, usize>) {
         self.locals.extend(map.into_iter());
-    }
-
-    /// Gets a mutable reference to `self's` environment
-    ///
-    /// # Panics
-    /// `environment_mut` panics if Rc::get_mut fails. It is not a valid runtime error for
-    /// Rc::get_mut to fail. It is the responsibility of the programmer to ensure that there are no
-    /// other clients of the Rc pointer.
-    fn environment_mut<'a>(&'a mut self) -> &'a mut Environment {
-        Rc::get_mut(&mut self.environment).unwrap()
     }
 }
 
