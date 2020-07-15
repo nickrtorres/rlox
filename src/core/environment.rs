@@ -153,9 +153,8 @@ impl Environment {
     ///
     /// # Panics
     /// `lower` is infallible. It is the responsibility of the programmer to
-    /// ensure that (1) the current environment has an enclosing environment and
-    /// (2) the enclosing environment is a unique Rc. Failure to meet the
-    /// conditions above will crash rlox.
+    /// ensure that the current environment has an enclosing environment and .
+    /// Failure to meet the condition above will crash rlox.
     ///
     /// # Note
     /// This is the inverse of `Environment::raise`.
