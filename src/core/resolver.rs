@@ -85,14 +85,10 @@ impl Resolver {
 
                 // This differs a bit from jlox.
                 if let Some(s) = superclass {
-                    if let Expr::Variable(ref token) = s {
-                        if token.lexeme == name.lexeme {
-                            return Err(RloxError::InheritFromSelf(token.lexeme.to_owned()));
-                        }
-                        self.resolve_expression(s)?;
-                    } else {
-                        // The parser should make this unreachable
-                        unreachable!();
+                    // The parser guarantees that s is a `Expr::Variable`.
+                    let var = s.as_variable_unchecked();
+                    if var.lexeme == name.lexeme {
+                        return Err(RloxError::InheritFromSelf(var.lexeme.to_owned()));
                     }
 
                     self.begin_scope();

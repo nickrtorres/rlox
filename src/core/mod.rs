@@ -509,6 +509,15 @@ pub enum Expr {
     Variable(Token),
 }
 
+impl Expr {
+    pub fn as_variable_unchecked(&self) -> &Token {
+        match self {
+            Self::Variable(t) => t,
+            _ => panic!(),
+        }
+    }
+}
+
 // TODO: making this clone is :((
 #[derive(Eq, Hash, Debug, PartialEq, Clone)]
 pub struct LoxFunction {
