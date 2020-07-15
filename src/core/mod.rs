@@ -238,6 +238,17 @@ impl Object {
             _ => panic!("attempted to get a callable from a non-callable variant"),
         }
     }
+
+    /// Destructures an `Object` into an `f64`
+    ///
+    /// # Panics
+    /// Panics if `self` does not hold a `Number` variant.
+    pub fn into_number_unchecked(self) -> f64 {
+        match self {
+            Self::Number(n) => n,
+            _ => panic!(),
+        }
+    }
 }
 
 impl Eq for Object {}

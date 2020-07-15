@@ -376,20 +376,20 @@ impl Interpreter {
             }
             Expr::Unary(token, expr) => {
                 let right = self.evaluate(expr)?;
-
-                if let TokenType::Minus = token.token_type {
-                    if let Object::Number(n) = right {
-                        return Ok(Object::Number(f64::from(-1) * n));
+                match token.token_type {
+                    // The parser guarantees that the operand to the right of a
+                    // unary '-' will be a number. It is a programmer error if
+                    // this invariant does not hold.
+                    TokenType::Minus => Ok(Object::Number(-right.into_number_unchecked())),
+                    TokenType::Bang => {
+                        if let Object::Bool(b) = right {
+                            Ok(Object::Bool(!b))
+                        } else {
+                            Ok(Object::Bool(!false))
+                        }
                     }
-                } else if let TokenType::Bang = token.token_type {
-                    if let Object::Bool(b) = right {
-                        return Ok(Object::Bool(!b));
-                    } else {
-                        return Ok(Object::Bool(!false));
-                    }
+                    _ => unreachable!(),
                 }
-
-                unreachable!();
             }
             Expr::Literal(obj) => Ok(obj.clone()),
             Expr::Logical(left, token, right) => {
