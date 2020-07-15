@@ -58,7 +58,7 @@ impl Interpreter {
                     if let Some(s) = self
                         .evaluate(s)?
                         .into_callable()
-                        .and_then(|c| c.into_definition())
+                        .and_then(LoxCallable::into_definition)
                     {
                         Some(Box::new(s))
                     } else {
@@ -250,7 +250,7 @@ impl Interpreter {
                 if let Some(c) = self
                     .evaluate(object)?
                     .into_callable()
-                    .and_then(|c| c.into_instance())
+                    .and_then(LoxCallable::into_instance)
                 {
                     c.get(&name.lexeme)
                 } else {
@@ -349,7 +349,7 @@ impl Interpreter {
                         if let Some(LoxCallable::UserDefined(f)) = instance
                             .get(INIT_METHOD)
                             .ok()
-                            .and_then(|c| c.into_callable())
+                            .and_then(Object::into_callable)
                         {
                             let init_expr = Box::new(Expr::Call(
                                 Box::new(Expr::Literal(Object::Callable(
@@ -378,7 +378,7 @@ impl Interpreter {
                 if let Some(mut instance) = self
                     .evaluate(object)?
                     .into_callable()
-                    .and_then(|c| c.into_instance())
+                    .and_then(LoxCallable::into_instance)
                 {
                     let value = self.evaluate(value)?;
                     instance.set(&name.lexeme, value);
