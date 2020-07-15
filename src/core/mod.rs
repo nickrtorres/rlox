@@ -333,17 +333,6 @@ impl LoxCallable {
             _ => panic!("attempted to get an definition from a non-definition variant"),
         }
     }
-
-    /// Destructures a `LoxCallable` into a `FunctionStmt`
-    ///
-    /// # Panics
-    /// Panics if `self` does not hold a `UserDefined` variant.
-    fn into_function_stmt_unchecked(self) -> FunctionStmt {
-        match self {
-            Self::UserDefined(f) => f,
-            _ => panic!(),
-        }
-    }
 }
 
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]
@@ -535,7 +524,7 @@ pub enum Stmt {
     // TODO maybe this should be Vec of LoxCallable?
     Class(Token, Option<Expr>, Vec<Stmt>),
     Expression(Expr),
-    Function(LoxCallable),
+    Function(FunctionStmt),
     If(Expr, Box<Stmt>, Option<Box<Stmt>>),
     Print(Expr),
     Return(Token, Option<Expr>),
@@ -544,7 +533,14 @@ pub enum Stmt {
 }
 
 impl Stmt {
-    fn into_callable_unchecked(self) -> LoxCallable {
+    fn into_function_unchecked(self) -> FunctionStmt {
+        match self {
+            Self::Function(f) => f,
+            _ => panic!(),
+        }
+    }
+
+    fn as_function_unchecked(&self) -> &FunctionStmt {
         match self {
             Self::Function(f) => f,
             _ => panic!(),

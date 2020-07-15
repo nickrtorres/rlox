@@ -1,4 +1,4 @@
-use super::{Expr, FunctionStmt, LoxCallable, Result, RloxError, Stmt, Token, INIT_METHOD};
+use super::{Expr, FunctionStmt, Result, RloxError, Stmt, Token, INIT_METHOD};
 
 use std::collections::HashMap;
 
@@ -74,15 +74,12 @@ impl Resolver {
                 self.scopes
                     .last_mut()
                     .map(|m| m.insert("this".to_owned(), true));
-                for method in methods {
-                    if let Stmt::Function(LoxCallable::UserDefined(f)) = method {
-                        if f.name.lexeme == INIT_METHOD {
-                            self.resolve_function(f, Some(FunctionType::Initializer))?;
-                        } else {
-                            self.resolve_function(f, Some(FunctionType::Method))?;
-                        }
+
+                for method in methods.iter().map(Stmt::as_function_unchecked) {
+                    if method.name.lexeme == INIT_METHOD {
+                        self.resolve_function(method, Some(FunctionType::Initializer))?;
                     } else {
-                        unreachable!();
+                        self.resolve_function(method, Some(FunctionType::Method))?;
                     }
                 }
 
@@ -144,15 +141,10 @@ impl Resolver {
                 self.resolve_statment(body)?;
             }
             Stmt::Function(f) => {
-                let func = match f {
-                    LoxCallable::UserDefined(s) => s,
-                    _ => unreachable!(),
-                };
+                self.declare(&f.name)?;
+                self.define(&f.name);
 
-                self.declare(&func.name)?;
-                self.define(&func.name);
-
-                self.resolve_function(func, Some(FunctionType::Function))?;
+                self.resolve_function(f, Some(FunctionType::Function))?;
             }
             _ => {}
         }

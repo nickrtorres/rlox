@@ -220,10 +220,7 @@ impl Interpreter {
 
                 for method in methods {
                     // The parser guarantees that a `method` is a Stmt::Function(...).
-                    let mut f = method
-                        .clone()
-                        .into_callable_unchecked()
-                        .into_function_stmt_unchecked();
+                    let mut f = method.clone().into_function_unchecked();
                     f.initializer = f.name.lexeme == INIT_METHOD;
                     klass.add_method(f);
                 }
@@ -271,14 +268,13 @@ impl Interpreter {
                 }
             }
             Stmt::Function(f) => {
-                let name = match f {
-                    LoxCallable::UserDefined(s) => &s.name.lexeme,
-                    _ => unreachable!(),
-                };
+                let name = &f.name.lexeme;
 
                 fail_if_not_unique(&self.environment);
-                self.environment_mut()
-                    .define(name.to_owned(), Object::Callable(f.clone()));
+                self.environment_mut().define(
+                    name.to_owned(),
+                    Object::Callable(LoxCallable::UserDefined(f.clone())),
+                );
             }
             Stmt::Return(_, value) => {
                 let mut v = Object::Nil;
