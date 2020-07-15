@@ -19,9 +19,8 @@ impl Interpreter {
     // TODO: Not using global environment like jlox. Maybe this is bad.
     #[must_use]
     pub fn new() -> Self {
-        let clock_fn = LoxCallable::Clock;
         let mut environment = Environment::new();
-        environment.define("clock".to_owned(), Object::Callable(clock_fn));
+        environment.define("clock".to_owned(), Object::Callable(LoxCallable::Clock));
         Interpreter {
             environment: environment,
             locals: HashMap::new(),
