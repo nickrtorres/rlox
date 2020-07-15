@@ -514,10 +514,9 @@ impl Parser {
             return Ok(Box::new(Expr::Super(keyword, method)));
         }
 
-        // TODO: constructing variants for Number and String isn't ideal
         if self.match_tokens(vec![
-            TokenType::Number(f64::from(0)),
-            TokenType::String(String::new()),
+            TokenType::Number(f64::default()),
+            TokenType::String(String::default()),
         ]) {
             let previous = self.previous();
             let rv = match &previous.token_type {
