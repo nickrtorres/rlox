@@ -388,11 +388,13 @@ impl<'a> LoxClassWalker<'a> {
 }
 
 pub trait Walk<'a> {
-    fn walk(&mut self) -> Option<&'a LoxClass>;
+    type Item;
+    fn walk(&mut self) -> Option<Self::Item>;
 }
 
 impl<'a> Walk<'a> for LoxClassWalker<'a> {
-    fn walk(&mut self) -> Option<&'a LoxClass> {
+    type Item = &'a LoxClass;
+    fn walk(&mut self) -> Option<Self::Item> {
         let data = self.superclass;
         self.superclass = self
             .superclass
@@ -490,7 +492,10 @@ impl LoxInstance {
 ///
 /// In the worst case this routine is O(m*n) where m in the number methods on
 /// `candidate` and `n` is inheritance depth.
-fn find_super_method<'a, W: Walk<'a>>(mut walker: W, name: &str) -> Option<&'a LoxFunction> {
+fn find_super_method<'a, W>(mut walker: W, name: &str) -> Option<&'a LoxFunction>
+where
+    W: Walk<'a, Item = &'a LoxClass>,
+{
     while let Some(candidate) = walker.walk() {
         if let Some(method) = candidate.methods.iter().find(|e| e.name.lexeme == name) {
             return Some(method);
