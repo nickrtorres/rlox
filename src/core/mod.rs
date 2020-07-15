@@ -224,10 +224,9 @@ impl Object {
     }
 
     fn into_callable_unchecked(self) -> LoxCallable {
-        if let Self::Callable(c) = self {
-            c
-        } else {
-            panic!("attempted to get a callable from a non-callable variant");
+        match self {
+            Self::Callable(c) => c,
+            _ => panic!("attempted to get a callable from a non-callable variant"),
         }
     }
 }
@@ -288,10 +287,9 @@ impl LoxCallable {
     }
 
     fn into_instance_unchecked(self) -> LoxInstance {
-        if let Self::ClassInstance(c) = self {
-            c
-        } else {
-            panic!("attempted to get an instance from a non-instance variant");
+        match self {
+            Self::ClassInstance(c) => c,
+            _ => panic!("attempted to get an instance from a non-instance variant"),
         }
     }
 
@@ -303,10 +301,9 @@ impl LoxCallable {
     }
 
     fn into_definition_unchecked(self) -> LoxClass {
-        if let Self::ClassDefinition(d) = self {
-            d
-        } else {
-            panic!("attempted to get an definition from a non-definition variant");
+        match self {
+            Self::ClassDefinition(d) => d,
+            _ => panic!("attempted to get an definition from a non-definition variant"),
         }
     }
 
