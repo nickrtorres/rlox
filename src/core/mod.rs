@@ -258,7 +258,7 @@ impl Hash for Object {
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]
 pub enum LoxCallable {
     Clock,
-    UserDefined(FunctionStmt),
+    UserDefined(LoxFunction),
     ClassDefinition(LoxClass),
     ClassInstance(LoxInstance),
 }
@@ -340,7 +340,7 @@ impl LoxCallable {
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]
 pub struct LoxClass {
     name: String,
-    methods: Vec<FunctionStmt>,
+    methods: Vec<LoxFunction>,
     superclass: Option<Box<LoxClass>>,
 }
 
@@ -354,7 +354,7 @@ impl LoxClass {
         }
     }
 
-    fn add_method(&mut self, method: FunctionStmt) {
+    fn add_method(&mut self, method: LoxFunction) {
         self.methods.push(method)
     }
 
@@ -411,7 +411,7 @@ pub struct LoxInstance {
     // This differs from jlox since std::collections::HashMap is not Hash.
     // It might be slow.
     fields: Vec<Property>,
-    methods: Vec<FunctionStmt>,
+    methods: Vec<LoxFunction>,
     superclass: Option<Box<LoxClass>>,
 }
 
@@ -479,7 +479,7 @@ impl LoxInstance {
 ///
 /// In the worst case this routine is O(m*n) where m in the number methods on
 /// `candidate` and `n` is inheritance depth.
-fn find_super_method<'a, W: Walk<'a>>(mut walker: W, name: &str) -> Option<&'a FunctionStmt> {
+fn find_super_method<'a, W: Walk<'a>>(mut walker: W, name: &str) -> Option<&'a LoxFunction> {
     while let Some(candidate) = walker.walk() {
         if let Some(method) = candidate.methods.iter().find(|e| e.name.lexeme == name) {
             return Some(method);
@@ -511,7 +511,7 @@ pub enum Expr {
 
 // TODO: making this clone is :((
 #[derive(Eq, Hash, Debug, PartialEq, Clone)]
-pub struct FunctionStmt {
+pub struct LoxFunction {
     name: Token,
     parameters: Vec<Token>,
     body: Vec<Stmt>,
@@ -526,7 +526,7 @@ pub enum Stmt {
     // TODO maybe this should be Vec of LoxCallable?
     Class(Token, Option<Expr>, Vec<Stmt>),
     Expression(Expr),
-    Function(FunctionStmt),
+    Function(LoxFunction),
     If(Expr, Box<Stmt>, Option<Box<Stmt>>),
     Print(Expr),
     Return(Token, Option<Expr>),
@@ -535,14 +535,14 @@ pub enum Stmt {
 }
 
 impl Stmt {
-    fn into_function_unchecked(self) -> FunctionStmt {
+    fn into_function_unchecked(self) -> LoxFunction {
         match self {
             Self::Function(f) => f,
             _ => panic!(),
         }
     }
 
-    fn as_function_unchecked(&self) -> &FunctionStmt {
+    fn as_function_unchecked(&self) -> &LoxFunction {
         match self {
             Self::Function(f) => f,
             _ => panic!(),
@@ -558,7 +558,7 @@ mod tests {
 
         #[test]
         fn it_can_lookup_methods() {
-            let method = FunctionStmt {
+            let method = LoxFunction {
                 name: Token::new(TokenType::Identifier, "bar".to_owned(), 1),
                 parameters: Vec::new(),
                 body: Vec::new(),
@@ -637,7 +637,7 @@ mod tests {
             // class Derived < Base {}
             //
             let mut base = LoxClass::new("base".to_owned(), None);
-            let mut method = FunctionStmt {
+            let mut method = LoxFunction {
                 name: Token::new(TokenType::Identifier, "f".to_owned(), 1),
                 parameters: Vec::new(),
                 body: Vec::new(),
@@ -672,7 +672,7 @@ mod tests {
             // class Derived < Indirect {}
             //
             let mut base = LoxClass::new("base".to_owned(), None);
-            let mut method = FunctionStmt {
+            let mut method = LoxFunction {
                 name: Token::new(TokenType::Identifier, "f".to_owned(), 1),
                 parameters: Vec::new(),
                 body: Vec::new(),
@@ -710,7 +710,7 @@ mod tests {
             // class Derived < IndirectTwo {}
             //
             let mut base = LoxClass::new("base".to_owned(), None);
-            let mut method = FunctionStmt {
+            let mut method = LoxFunction {
                 name: Token::new(TokenType::Identifier, "f".to_owned(), 1),
                 parameters: Vec::new(),
                 body: Vec::new(),
@@ -741,8 +741,8 @@ mod tests {
     mod walker {
         use super::*;
 
-        fn make_method(name: &str, superclass: Option<LoxClass>) -> FunctionStmt {
-            FunctionStmt {
+        fn make_method(name: &str, superclass: Option<LoxClass>) -> LoxFunction {
+            LoxFunction {
                 name: Token::new(TokenType::Identifier, name.to_owned(), 1),
                 parameters: Vec::default(),
                 body: Vec::default(),

@@ -2,11 +2,11 @@ use std::fmt;
 use std::result;
 
 use super::{
-    FunctionStmt, LoxCallable, LoxClass, LoxInstance, Object, RloxError, Token, TokenType,
+    LoxCallable, LoxClass, LoxFunction, LoxInstance, Object, RloxError, Token, TokenType,
     MAX_PARAMS,
 };
 
-impl fmt::Display for FunctionStmt {
+impl fmt::Display for LoxFunction {
     fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
         write!(f, "<fn {}>", self.name.lexeme)
     }

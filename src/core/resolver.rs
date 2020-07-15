@@ -1,4 +1,4 @@
-use super::{Expr, FunctionStmt, Result, RloxError, Stmt, Token, INIT_METHOD};
+use super::{Expr, LoxFunction, Result, RloxError, Stmt, Token, INIT_METHOD};
 
 use std::collections::HashMap;
 
@@ -229,7 +229,7 @@ impl Resolver {
 
     fn resolve_function(
         &mut self,
-        function: &FunctionStmt,
+        function: &LoxFunction,
         function_type: Option<FunctionType>,
     ) -> Result<()> {
         let enclosing = self.current_function;
