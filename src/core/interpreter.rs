@@ -101,6 +101,9 @@ impl Environment {
     ///                       
     ///                       
     /// ```
+    ///
+    /// # Note
+    /// This is the inverse of `Environment::lower`.
     pub fn raise(&mut self) {
         self.enclosing = Some(Rc::from(Environment {
             values: mem::replace(&mut self.values, HashMap::new()),
@@ -134,7 +137,7 @@ impl Environment {
     ///                             +---------------+
     /// ```
     ///
-    /// A call of `e.flatten()` will collapse the environment:
+    /// A call of `e.lower()` will collapse the environment:
     /// ```notrust
     ///     +---------------+
     ///     | c             |
@@ -150,11 +153,14 @@ impl Environment {
     /// ```
     ///
     /// # Panics
-    /// `flatten` is infallible. It is the responsibility of the programmer to
+    /// `lower` is infallible. It is the responsibility of the programmer to
     /// ensure that (1) the current environment has an enclosing environment and
     /// (2) the enclosing environment is a unique Rc. Failure to meet the
     /// conditions above will crash rlox.
-    fn flatten(&mut self) {
+    ///
+    /// # Note
+    /// This is the inverse of `Environment::raise`.
+    fn lower(&mut self) {
         assert!(self.enclosing.is_some());
         let enclosing = self.enclosing.take().unwrap();
 
@@ -325,10 +331,10 @@ impl Interpreter {
         for statement in statements {
             if let Err(e) = self.execute(statement) {
                 match e {
-                    // Make sure to flatten our environment before returning a
+                    // Make sure to lower our environment before returning a
                     // value to the caller
                     RloxError::Return(v) => {
-                        self.environment.flatten();
+                        self.environment.lower();
                         return Err(RloxError::Return(v));
                     }
                     _ => return Err(e),
@@ -340,7 +346,7 @@ impl Interpreter {
             let this = self.environment.get(THIS)?;
             self.environment.assign(name, this)?;
         }
-        self.environment.flatten();
+        self.environment.lower();
         Ok(())
     }
 
