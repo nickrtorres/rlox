@@ -403,14 +403,6 @@ impl<'a> Walk<'a> for LoxClassWalker<'a> {
     }
 }
 
-impl<'a> Iterator for LoxClassWalker<'a> {
-    type Item = &'a LoxClass;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.walk()
-    }
-}
-
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]
 struct Property {
     name: String,
@@ -788,18 +780,6 @@ mod tests {
             assert_eq!(Some(&parent), walker.walk());
             assert_eq!(Some(&grandparent), walker.walk());
             assert_eq!(None, walker.walk());
-        }
-
-        #[test]
-        fn it_is_iterable() {
-            let grandparent = LoxClass::new("grandparent".to_owned(), None);
-            let parent = LoxClass::new("parent".to_owned(), Some(Box::new(grandparent.clone())));
-            let child = LoxClass::new("child".to_owned(), Some(Box::new(parent.clone())));
-
-            let ancestors: Vec<&LoxClass> =
-                LoxClassWalker::new(child.superclass.as_deref()).collect();
-
-            assert_eq!(vec![&parent, &grandparent], ancestors);
         }
 
         #[test]
