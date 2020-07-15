@@ -422,8 +422,8 @@ impl Interpreter {
                 // TODO figure out a better way to do this.
                 //
                 // We need the caller name later to update the this pointer.
-                let caller_name: Option<&str> = if let Expr::Get(e, _) = &**callee {
-                    if let Expr::Variable(t) = &**e {
+                let caller_name: Option<&str> = if let Expr::Get(e, _) = callee.as_ref() {
+                    if let Expr::Variable(t) = e.as_ref() {
                         Some(&t.lexeme)
                     } else {
                         None
