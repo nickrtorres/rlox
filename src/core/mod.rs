@@ -4,11 +4,13 @@ use std::num::ParseFloatError;
 use std::result;
 
 mod display;
+pub mod environment;
 pub mod interpreter;
 pub mod parser;
 pub mod resolver;
 pub mod scanner;
 
+type Environment = environment::Environment;
 pub type Interpreter = interpreter::Interpreter;
 pub type Parser = parser::Parser;
 pub type Result<T> = result::Result<T, RloxError>;
