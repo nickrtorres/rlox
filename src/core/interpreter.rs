@@ -12,11 +12,6 @@ use super::{
 const THIS: &str = "this";
 const SUPER: &str = "super";
 
-fn fail_if_not_unique<T>(ptr: &Rc<T>) {
-    assert!(Rc::strong_count(ptr) <= 1);
-    assert!(Rc::weak_count(ptr) <= 1);
-}
-
 #[derive(Debug, Clone)]
 pub struct Environment {
     values: HashMap<String, Object>,
@@ -54,7 +49,8 @@ impl Environment {
         match self.values.entry(name.to_owned()) {
             Entry::Vacant(_) => {
                 if let Some(e) = &mut self.enclosing {
-                    fail_if_not_unique(&e);
+                    assert!(Rc::strong_count(e) <= 1);
+                    assert!(Rc::weak_count(e) <= 1);
                     return Rc::get_mut(e).unwrap().assign(name, value);
                 }
 
@@ -163,7 +159,8 @@ impl Environment {
         let enclosing = self.enclosing.take().unwrap();
 
         // we're about to consume enclosing! make sure there aren't any other users
-        fail_if_not_unique(&enclosing);
+        assert!(Rc::strong_count(&enclosing) <= 1);
+        assert!(Rc::weak_count(&enclosing) <= 1);
         *self = Rc::try_unwrap(enclosing).expect("Enclosing must be unique!");
     }
 
