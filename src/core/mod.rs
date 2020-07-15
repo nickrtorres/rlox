@@ -216,14 +216,23 @@ pub enum Object {
 }
 
 impl Object {
-    fn into_callable(self) -> Option<LoxCallable> {
+    /// Destructures an `Object` into a `LoxCallable`
+    ///
+    /// # Returns
+    /// Returns `Some(LoxCallable)` if `self` holds a Callable variant. Returns
+    /// `None` otherwise.
+    pub fn into_callable(self) -> Option<LoxCallable> {
         match self {
             Self::Callable(c) => Some(c),
             _ => None,
         }
     }
 
-    fn into_callable_unchecked(self) -> LoxCallable {
+    /// Destructures an `Object` into a `LoxCallable`
+    ///
+    /// # Panics
+    /// Panics if `self` does not hold a `Callable` variant.
+    pub fn into_callable_unchecked(self) -> LoxCallable {
         match self {
             Self::Callable(c) => c,
             _ => panic!("attempted to get a callable from a non-callable variant"),
@@ -279,13 +288,22 @@ impl LoxCallable {
         }
     }
 
-    fn into_instance(self) -> Option<LoxInstance> {
+    /// Destructures a `LoxCallable` into a `LoxInstance`
+    ///
+    /// # Returns
+    /// `Some(LoxInstance)` if `self` holds a `ClassInstance` variant. Returns
+    /// `None` otherwise.
+    pub fn into_instance(self) -> Option<LoxInstance> {
         match self {
             Self::ClassInstance(c) => Some(c),
             _ => None,
         }
     }
 
+    /// Destructures a `LoxCallable` into a `LoxInstance`
+    ///
+    /// # Panics
+    /// Panics if `self` does not hold a `ClassInstance` variant.
     fn into_instance_unchecked(self) -> LoxInstance {
         match self {
             Self::ClassInstance(c) => c,
@@ -293,6 +311,11 @@ impl LoxCallable {
         }
     }
 
+    /// Destructures a `LoxCallable` into a `LoxClass`
+    ///
+    /// # Returns
+    /// `Some(LoxClass)` if `self` holds a `ClassDefinition` variant. Returns
+    /// `None` otherwise.
     fn into_definition(self) -> Option<LoxClass> {
         match self {
             Self::ClassDefinition(d) => Some(d),
@@ -300,14 +323,22 @@ impl LoxCallable {
         }
     }
 
-    fn into_definition_unchecked(self) -> LoxClass {
+    /// Destructures a `LoxCallable` into a `LoxClass`
+    ///
+    /// # Panics
+    /// Panics if `self` does not hold a `ClassDefinition` variant.
+    pub fn into_definition_unchecked(self) -> LoxClass {
         match self {
             Self::ClassDefinition(d) => d,
             _ => panic!("attempted to get an definition from a non-definition variant"),
         }
     }
 
-    fn into_user_defined_unchecked(self) -> FunctionStmt {
+    /// Destructures a `LoxCallable` into a `FunctionStmt`
+    ///
+    /// # Panics
+    /// Panics if `self` does not hold a `UserDefined` variant.
+    fn into_function_stmt_unchecked(self) -> FunctionStmt {
         match self {
             Self::UserDefined(f) => f,
             _ => panic!(),

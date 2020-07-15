@@ -223,7 +223,7 @@ impl Interpreter {
                     let mut f = method
                         .clone()
                         .into_callable_unchecked()
-                        .into_user_defined_unchecked();
+                        .into_function_stmt_unchecked();
                     f.initializer = f.name.lexeme == INIT_METHOD;
                     klass.add_method(f);
                 }
