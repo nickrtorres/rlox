@@ -309,6 +309,13 @@ impl LoxCallable {
             panic!("attempted to get an definition from a non-definition variant");
         }
     }
+
+    fn into_user_defined_unchecked(self) -> FunctionStmt {
+        match self {
+            Self::UserDefined(f) => f,
+            _ => panic!(),
+        }
+    }
 }
 
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]
@@ -506,6 +513,15 @@ pub enum Stmt {
     Return(Token, Option<Expr>),
     Var(Token, Option<Expr>),
     While(Expr, Box<Stmt>),
+}
+
+impl Stmt {
+    fn into_callable_unchecked(self) -> LoxCallable {
+        match self {
+            Self::Function(f) => f,
+            _ => panic!(),
+        }
+    }
 }
 
 #[cfg(test)]

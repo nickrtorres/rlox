@@ -218,17 +218,14 @@ impl Interpreter {
 
                 let mut klass = LoxClass::new(name.lexeme.clone(), superclass);
 
-                // Methods are of type Stmt
-                //   The underlying variant *should* be Stmt::Function
-                //     - TODO can this be an invariant?
                 for method in methods {
-                    if let Stmt::Function(LoxCallable::UserDefined(f)) = method {
-                        let mut f = f.clone();
-                        f.initializer = f.name.lexeme == INIT_METHOD;
-                        klass.add_method(f);
-                    } else {
-                        unreachable!();
-                    }
+                    // The parser guarantees that a `method` is a Stmt::Function(...).
+                    let mut f = method
+                        .clone()
+                        .into_callable_unchecked()
+                        .into_user_defined_unchecked();
+                    f.initializer = f.name.lexeme == INIT_METHOD;
+                    klass.add_method(f);
                 }
 
                 let klass = Object::Callable(LoxCallable::ClassDefinition(klass));
