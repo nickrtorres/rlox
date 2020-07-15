@@ -303,8 +303,10 @@ impl LoxCallable {
     /// Destructures a `LoxCallable` into a `LoxInstance`
     ///
     /// # Panics
-    /// Panics if `self` does not hold a `ClassInstance` variant.
-    fn into_instance_unchecked(self) -> LoxInstance {
+    /// Panics if `self` does not hold a [`ClassInstance`] variant.
+    ///
+    /// [`ClassInstance`]: #variant.ClassInstance
+    pub fn into_instance_unchecked(self) -> LoxInstance {
         match self {
             Self::ClassInstance(c) => c,
             _ => panic!("attempted to get an instance from a non-instance variant"),
