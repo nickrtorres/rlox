@@ -1,5 +1,6 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::iter::FromIterator;
 use std::mem;
 
 use super::{Object, Result, RloxError, Walk};
@@ -188,6 +189,22 @@ impl Environment {
     }
 }
 
+/// Constructs an environment from an iterator.
+impl FromIterator<(String, Object)> for Environment {
+    fn from_iter<T>(iter: T) -> Self
+    where
+        T: IntoIterator<Item = (String, Object)>,
+    {
+        let mut values = HashMap::new();
+        values.extend(iter);
+
+        Environment {
+            values,
+            enclosing: None,
+        }
+    }
+}
+
 struct EnvironmentWalker<'a> {
     current: Option<&'a Environment>,
 }
@@ -344,5 +361,20 @@ mod tests {
             Err(RloxError::UndefinedVariable(foo.to_owned())),
             environment.assign(foo, Object::Nil)
         );
+    }
+
+    #[test]
+    fn it_can_be_built_from_an_iterator() {
+        let environment = vec![
+            ("foo".to_owned(), Object::Number(f64::from(42))),
+            ("bar".to_owned(), Object::Nil),
+            ("baz".to_owned(), Object::String("baz".to_owned())),
+        ]
+        .into_iter()
+        .collect::<Environment>();
+
+        assert_eq!(Ok(Object::Number(f64::from(42))), environment.get("foo"));
+        assert_eq!(Ok(Object::Nil), environment.get("bar"));
+        assert_eq!(Ok(Object::String("baz".to_owned())), environment.get("baz"));
     }
 }
