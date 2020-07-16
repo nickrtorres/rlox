@@ -373,19 +373,17 @@ impl LoxClass {
 
     #[must_use]
     fn walker(&self) -> LoxClassWalker {
-        LoxClassWalker {
-            superclass: self.superclass.as_deref(),
-        }
+        LoxClassWalker::new(self.superclass.as_deref())
     }
 }
 
 pub struct LoxClassWalker<'a> {
-    superclass: Option<&'a LoxClass>,
+    current: Option<&'a LoxClass>,
 }
 
 impl<'a> LoxClassWalker<'a> {
-    fn new(superclass: Option<&'a LoxClass>) -> Self {
-        LoxClassWalker { superclass }
+    fn new(current: Option<&'a LoxClass>) -> Self {
+        LoxClassWalker { current }
     }
 }
 
@@ -397,10 +395,8 @@ pub trait Walk<'a> {
 impl<'a> Walk<'a> for LoxClassWalker<'a> {
     type Item = &'a LoxClass;
     fn walk(&mut self) -> Option<Self::Item> {
-        let data = self.superclass;
-        self.superclass = self
-            .superclass
-            .and_then(|outer| outer.superclass.as_deref());
+        let data = self.current;
+        self.current = self.current.and_then(|outer| outer.superclass.as_deref());
         data
     }
 }
