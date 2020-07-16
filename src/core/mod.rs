@@ -439,14 +439,14 @@ impl LoxInstance {
     /// superclass list until we (1) find the method we're looking for or (2)
     /// exhaust the candidate list.
     fn get_super(&self, name: &str) -> Result<Object> {
-        if let Some(method) = find_method(self.walker(), name) {
-            let mut method = method.clone();
-            method.this = Some(self.clone());
-            method.superclass = self.superclass.clone().map(|s| *s);
-            Ok(Object::Callable(LoxCallable::UserDefined(method)))
-        } else {
-            Err(RloxError::UndefinedProperty(name.to_owned()))
-        }
+        find_method(self.walker(), name)
+            .map(|method| {
+                let mut method = method.clone();
+                method.this = Some(self.clone());
+                method.superclass = self.superclass.clone().map(|s| *s);
+                Object::Callable(LoxCallable::UserDefined(method))
+            })
+            .ok_or(RloxError::UndefinedProperty(name.to_owned()))
     }
 
     fn set(&mut self, name: &str, value: Object) {
