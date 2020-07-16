@@ -178,7 +178,7 @@ impl Environment {
             }
         }
 
-        unreachable!(format!("distance: {} is unreachable!", distance));
+        panic!(format!("distance: {} is unreachable!", distance));
     }
 
     fn walker(&self) -> EnvironmentWalker {
@@ -206,5 +206,100 @@ impl<'a> Iterator for EnvironmentWalker<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.walk()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn it_can_store_and_retrieve_objects() {
+        let first = ("foo", Object::Number(f64::from(42)));
+        let mut environment = Environment::new();
+
+        environment.define(first.0.to_owned(), first.1.clone());
+
+        assert_eq!(Ok(first.1), environment.get(first.0));
+    }
+
+    #[test]
+    fn it_returns_an_error_if_the_queried_object_doesnt_exist() {
+        let foo = "foo";
+        let environment = Environment::new();
+
+        assert_eq!(
+            Err(RloxError::UndefinedVariable(foo.to_owned())),
+            environment.get(foo)
+        );
+    }
+
+    #[test]
+    fn it_can_find_an_object_at_a_higher_level() {
+        let first = ("foo", Object::Number(f64::from(42)));
+        let second = ("bar", Object::Number(f64::from(100)));
+        let mut environment = Environment::new();
+
+        environment.define(first.0.to_owned(), first.1.clone());
+        environment.raise();
+        environment.define(second.0.to_owned(), second.1.clone());
+        environment.raise();
+
+        assert_eq!(Ok(first.1), environment.get(first.0));
+    }
+
+    #[test]
+    fn it_returns_the_first_matching_object() {
+        let common_name = "foo";
+        let first = (common_name, Object::Number(f64::from(42)));
+        let second = (common_name, Object::Number(f64::from(100)));
+        let mut environment = Environment::new();
+
+        environment.define(common_name.to_owned(), first.1.clone());
+        environment.raise();
+        environment.define(common_name.to_owned(), second.1.clone());
+
+        assert_eq!(Ok(second.1), environment.get(common_name));
+    }
+
+    #[test]
+    fn it_can_find_an_object_at_a_specified_level() {
+        let first = ("foo", Object::Number(f64::from(42)));
+        let mut environment = Environment::new();
+
+        environment.define(first.0.to_owned(), first.1.clone());
+        environment.raise();
+        environment.raise();
+        environment.raise();
+        environment.raise();
+
+        assert_eq!(Ok(first.1), environment.get_at(4, first.0));
+    }
+
+    #[test]
+    #[should_panic]
+    fn it_panics_if_the_object_doesnt_exist_at_the_specified_level() {
+        let first = ("foo", Object::Number(f64::from(42)));
+        let mut environment = Environment::new();
+
+        environment.raise();
+        environment.raise();
+        environment.raise();
+        environment.raise();
+
+        let _ = environment.get_at(5, first.0);
+    }
+
+    #[test]
+    fn it_can_lower_an_environment_after_raising() {
+        let first = ("foo", Object::Number(f64::from(42)));
+        let mut environment = Environment::new();
+
+        environment.define(first.0.to_owned(), first.1.clone());
+        environment.raise();
+        assert_eq!(Ok(first.1.clone()), environment.get_at(1, first.0));
+
+        environment.lower();
+        assert_eq!(Ok(first.1), environment.get_at(0, first.0));
     }
 }
