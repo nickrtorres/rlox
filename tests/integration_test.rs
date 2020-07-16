@@ -206,6 +206,9 @@ verify_rlox_program_err! {"inheritance", "parenthesized_superclass"}
 
 // Logical operator (ok)
 verify_rlox_program_ok! {"logical_operator", "and"}
+verify_rlox_program_ok! {"logical_operator", "and_truth"}
+verify_rlox_program_ok! {"logical_operator", "or"}
+verify_rlox_program_ok! {"logical_operator", "or_truth"}
 
 // Method (ok)
 verify_rlox_program_ok! {"method", "arity"}

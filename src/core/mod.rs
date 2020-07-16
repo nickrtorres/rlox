@@ -161,6 +161,11 @@ impl Hash for TokenType {
     }
 }
 
+pub enum Logical {
+    And,
+    Or,
+}
+
 #[derive(Eq, Hash, Clone, Debug, PartialEq)]
 pub struct Token {
     token_type: TokenType,
@@ -175,6 +180,14 @@ impl Token {
             token_type,
             lexeme,
             line,
+        }
+    }
+
+    pub fn as_logical_unchecked(&self) -> Logical {
+        match self.token_type {
+            TokenType::And => Logical::And,
+            TokenType::Or => Logical::Or,
+            _ => panic!("unsupported variant!"),
         }
     }
 }

@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::{
-    find_method, Environment, Expr, LoxCallable, LoxClass, LoxInstance, Object, Result, RloxError,
-    Stmt, Token, TokenType, INIT_METHOD,
+    find_method, Environment, Expr, Logical, LoxCallable, LoxClass, LoxInstance, Object, Result,
+    RloxError, Stmt, Token, TokenType, INIT_METHOD,
 };
 
 const THIS: &str = "this";
@@ -42,16 +42,13 @@ impl Interpreter {
                 self.execute_block(statements, None)?;
             }
             Stmt::If(expr, then_branch, else_branch) => {
-                // lox only considers false and nil falsey. Every other object
-                // is considered truthy.
-                match self.evaluate(&expr)? {
-                    Object::Nil | Object::Bool(false) => {
-                        if let Some(e) = else_branch {
-                            self.execute(e)?;
-                        }
+                if Interpreter::is_truthy(&self.evaluate(&expr)?) {
+                    self.execute(then_branch)?;
+                } else {
+                    if let Some(e) = else_branch {
+                        self.execute(e)?;
                     }
-                    _ => self.execute(then_branch)?,
-                };
+                }
             }
             Stmt::Class(name, superclass, methods) => {
                 let superclass: Option<Box<LoxClass>> = if let Some(s) = superclass {
@@ -235,16 +232,22 @@ impl Interpreter {
             Expr::Literal(obj) => Ok(obj.clone()),
             Expr::Logical(left, token, right) => {
                 let left = self.evaluate(left)?;
-
-                if token.token_type == TokenType::Or {
-                    if let Object::Bool(true) = left {
-                        return Ok(left);
+                match token.as_logical_unchecked() {
+                    Logical::Or => {
+                        if Interpreter::is_truthy(&left) {
+                            return Ok(left);
+                        } else {
+                            self.evaluate(right)
+                        }
                     }
-                } else if let Object::Bool(false) = left {
-                    return Ok(left);
+                    Logical::And => {
+                        if !Interpreter::is_truthy(&left) {
+                            Ok(left)
+                        } else {
+                            self.evaluate(right)
+                        }
+                    }
                 }
-
-                self.evaluate(right)
             }
             Expr::Get(object, name) => {
                 if let Some(c) = self
@@ -441,6 +444,17 @@ impl Interpreter {
 
     pub fn resolve(&mut self, map: HashMap<Expr, usize>) {
         self.locals.extend(map.into_iter());
+    }
+
+    // Gets the truth value of an Object.
+    //
+    // lox only considers false and nil falsey. Every other object variant is
+    // truthy.
+    pub fn is_truthy(object: &Object) -> bool {
+        match object {
+            Object::Nil | Object::Bool(false) => false,
+            _ => true,
+        }
     }
 }
 
