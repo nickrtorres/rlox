@@ -370,7 +370,7 @@ impl Interpreter {
             Expr::Set(object, name, value) => {
                 // TODO Yikes. Maybe it's a good idea to store the instance name within the
                 // instance?
-                let instance_name = match &**object {
+                let instance_name = match object.as_ref() {
                     Expr::Variable(t) | Expr::This(t) => Ok(&t.lexeme),
                     _ => Err(RloxError::PropertyAccessOnNonInstance),
                 }?;
