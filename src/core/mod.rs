@@ -277,25 +277,14 @@ pub enum LoxCallable {
 }
 
 impl LoxCallable {
-    // TODO clean this up
+    /// Returns the arity of a `LoxCallable`
     #[must_use]
     pub fn arity(&self) -> usize {
         match self {
             Self::UserDefined(f) => f.parameters.len(),
-            // init is a bit of a strange case. If we don't find an init method on ourselves then
-            // we need to look at our parent (if they exist).
-            Self::ClassDefinition(d) => {
-                if let Some(m) = d.methods.iter().find(|e| e.name.lexeme == INIT_METHOD) {
-                    m.parameters.len()
-                } else if let Some(m) = d
-                    .superclass
-                    .as_ref()
-                    .and_then(|s| s.methods.iter().find(|e| e.name.lexeme == INIT_METHOD))
-                {
-                    m.parameters.len()
-                } else {
-                    0
-                }
+            Self::ClassDefinition(class) => {
+                find_method(LoxClassWalker::new(Some(class)), INIT_METHOD)
+                    .map_or(0, |m| m.parameters.len())
             }
             Self::Clock | Self::ClassInstance(_) => 0,
         }
