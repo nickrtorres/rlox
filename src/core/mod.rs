@@ -454,7 +454,7 @@ impl LoxInstance {
     /// superclass list until we (1) find the method we're looking for or (2)
     /// exhaust the candidate list.
     fn get_super(&self, name: &str) -> Result<Object> {
-        if let Some(method) = find_super_method(self.walker(), name) {
+        if let Some(method) = find_method(self.walker(), name) {
             let mut method = method.clone();
             method.this = Some(self.clone());
             method.superclass = self.superclass.clone().map(|s| *s);
@@ -486,7 +486,7 @@ impl LoxInstance {
 ///
 /// In the worst case this routine is O(m*n) where m in the number methods on
 /// `candidate` and `n` is inheritance depth.
-fn find_super_method<'a, W>(mut walker: W, name: &str) -> Option<&'a LoxFunction>
+fn find_method<'a, W>(mut walker: W, name: &str) -> Option<&'a LoxFunction>
 where
     W: Walk<'a, Item = &'a LoxClass>,
 {
@@ -785,7 +785,7 @@ mod tests {
         }
 
         #[test]
-        fn it_can_find_super_methods() {
+        fn it_can_find_methods() {
             let mut grandparent = LoxClass::new("grandparent".to_owned(), None);
             let foo = make_method("foo", None);
             let bar = make_method("bar", None);
@@ -800,11 +800,11 @@ mod tests {
             let parent = LoxClass::new("parent".to_owned(), Some(Box::new(grandparent.clone())));
             let child = LoxClass::new("child".to_owned(), Some(Box::new(parent.clone())));
 
-            assert_eq!(Some(&foo), find_super_method(child.walker(), "foo"));
+            assert_eq!(Some(&foo), find_method(child.walker(), "foo"));
         }
 
         #[test]
-        fn it_can_find_super_methods_intermediates() {
+        fn it_can_find_methods_intermediates() {
             let mut grandparent = LoxClass::new("grandparent".to_owned(), None);
             let foo = make_method("foo", None);
             let bar = make_method("bar", None);
@@ -830,7 +830,7 @@ mod tests {
 
             let child = LoxClass::new("child".to_owned(), Some(Box::new(parent.clone())));
 
-            assert_eq!(Some(&qux), find_super_method(child.walker(), "qux"));
+            assert_eq!(Some(&qux), find_method(child.walker(), "qux"));
         }
     }
 }

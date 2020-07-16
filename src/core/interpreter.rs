@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::{
-    find_super_method, Environment, Expr, LoxCallable, LoxClass, LoxInstance, Object, Result,
-    RloxError, Stmt, Token, TokenType, INIT_METHOD,
+    find_method, Environment, Expr, LoxCallable, LoxClass, LoxInstance, Object, Result, RloxError,
+    Stmt, Token, TokenType, INIT_METHOD,
 };
 
 const THIS: &str = "this";
@@ -420,8 +420,7 @@ impl Interpreter {
                 // ourselves. For now, this is done by checking the existence of a superclass.
                 if superclass.superclass.is_none() {
                     return this.get_super(&method.lexeme);
-                } else if let Some(method) = find_super_method(superclass.walker(), &method.lexeme)
-                {
+                } else if let Some(method) = find_method(superclass.walker(), &method.lexeme) {
                     let mut method = method.clone();
                     method.this = Some(this);
                     return Ok(Object::Callable(LoxCallable::UserDefined(method)));
