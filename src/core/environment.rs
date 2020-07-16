@@ -302,4 +302,47 @@ mod tests {
         environment.lower();
         assert_eq!(Ok(first.1), environment.get_at(0, first.0));
     }
+
+    #[test]
+    fn it_can_update_an_existing_value() {
+        let initial = ("foo", Object::Number(f64::from(42)));
+        let mut environment = Environment::new();
+
+        environment.define(initial.0.to_owned(), initial.1.clone());
+        assert_eq!(Ok(initial.1.clone()), environment.get(initial.0));
+
+        let updated = Object::String("bar".to_owned());
+        assert!(environment.assign(initial.0, updated.clone()).is_ok());
+        assert_eq!(Ok(updated), environment.get(initial.0));
+    }
+
+    #[test]
+    fn it_can_update_an_raised_value() {
+        let initial = ("foo", Object::Number(f64::from(42)));
+        let mut environment = Environment::new();
+
+        environment.define(initial.0.to_owned(), initial.1.clone());
+        environment.raise();
+        environment.raise();
+        environment.raise();
+        environment.raise();
+        environment.raise();
+        environment.raise();
+        assert_eq!(Ok(initial.1.clone()), environment.get(initial.0));
+
+        let updated = Object::String("bar".to_owned());
+        assert!(environment.assign(initial.0, updated.clone()).is_ok());
+        assert_eq!(Ok(updated), environment.get(initial.0));
+    }
+
+    #[test]
+    fn it_is_an_error_to_update_a_non_existent_value() {
+        let foo = "foo";
+        let mut environment = Environment::new();
+
+        assert_eq!(
+            Err(RloxError::UndefinedVariable(foo.to_owned())),
+            environment.assign(foo, Object::Nil)
+        );
+    }
 }
