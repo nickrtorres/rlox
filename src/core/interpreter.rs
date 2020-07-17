@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::{
-    find_method, Environment, Expr, Logical, LoxCallable, LoxClass, LoxInstance, Object, Result,
-    RloxError, Stmt, Token, TokenType, INIT_METHOD,
+    find_method, ArithmeticOperation, Environment, Expr, Logical, LoxCallable, LoxClass,
+    LoxInstance, Object, Result, RloxError, Stmt, Token, TokenType, INIT_METHOD,
 };
 
 const THIS: &str = "this";
@@ -169,28 +169,10 @@ impl Interpreter {
                 let right = self.evaluate(right_expr)?;
 
                 match token.token_type {
-                    TokenType::Minus => match (&left, &right) {
-                        (Object::Number(l), Object::Number(r)) => Ok(Object::Number(l - r)),
-                        _ => Err(RloxError::MismatchedOperands(TokenType::Minus, left, right)),
-                    },
-                    TokenType::Slash => match (&left, &right) {
-                        (Object::Number(l), Object::Number(r)) => Ok(Object::Number(l / r)),
-                        _ => Err(RloxError::MismatchedOperands(TokenType::Slash, left, right)),
-                    },
-                    TokenType::Star => match (&left, &right) {
-                        (Object::Number(l), Object::Number(r)) => Ok(Object::Number(l * r)),
-                        _ => Err(RloxError::MismatchedOperands(TokenType::Star, left, right)),
-                    },
-                    TokenType::Plus => match (&left, &right) {
-                        (Object::Number(l), Object::Number(r)) => Ok(Object::Number(l + r)),
-                        (Object::String(l), Object::String(r)) => {
-                            let mut buffer = String::with_capacity(l.capacity() + r.capacity());
-                            buffer.push_str(l);
-                            buffer.push_str(r);
-                            Ok(Object::String(buffer))
-                        }
-                        _ => Err(RloxError::MismatchedOperands(TokenType::Plus, left, right)),
-                    },
+                    TokenType::Minus => left - right,
+                    TokenType::Slash => left / right,
+                    TokenType::Star => left * right,
+                    TokenType::Plus => left + right,
                     TokenType::Greater => match (&left, &right) {
                         (Object::Number(l), Object::Number(r)) => Ok(Object::Bool(l > r)),
                         _ => Err(RloxError::MismatchedOperands(TokenType::Plus, left, right)),
@@ -215,10 +197,15 @@ impl Interpreter {
             Expr::Unary(token, expr) => {
                 let right = self.evaluate(expr)?;
                 match token.token_type {
-                    // The parser guarantees that the operand to the right of a
-                    // unary '-' will be a number. It is a programmer error if
-                    // this invariant does not hold.
-                    TokenType::Minus => Ok(Object::Number(-right.into_number_unchecked())),
+                    TokenType::Minus => {
+                        let right =
+                            right
+                                .into_number()
+                                .ok_or(RloxError::BadArithmeticOperation(
+                                    ArithmeticOperation::Negate,
+                                ))?;
+                        Ok(Object::Number(-right))
+                    }
                     TokenType::Bang => {
                         if let Object::Bool(b) = right {
                             Ok(Object::Bool(!b))
@@ -545,70 +532,6 @@ mod tests {
         let expr = parser.parse().unwrap();
         assert_eq!(
             Ok(Object::String(String::from("foobar"))),
-            interpreter.evaluate(&expr)
-        );
-    }
-
-    #[test]
-    fn it_identifies_mismatched_operands_plus() {
-        let scanner = Scanner::new("1 + \"foo\"".to_owned());
-        let parser = Parser::new(scanner.scan_tokens().unwrap());
-        let mut interpreter = Interpreter::new();
-        let expr = parser.parse().unwrap();
-        assert_eq!(
-            Err(RloxError::MismatchedOperands(
-                TokenType::Plus,
-                Object::Number(f64::from(1)),
-                Object::String("foo".to_owned())
-            )),
-            interpreter.evaluate(&expr)
-        );
-    }
-
-    #[test]
-    fn it_identifies_mismatched_operands_minus() {
-        let scanner = Scanner::new("1 - \"bar\"".to_owned());
-        let parser = Parser::new(scanner.scan_tokens().unwrap());
-        let mut interpreter = Interpreter::new();
-        let expr = parser.parse().unwrap();
-        assert_eq!(
-            Err(RloxError::MismatchedOperands(
-                TokenType::Minus,
-                Object::Number(f64::from(1)),
-                Object::String("bar".to_owned())
-            )),
-            interpreter.evaluate(&expr)
-        );
-    }
-
-    #[test]
-    fn it_identifies_mismatched_operands_star() {
-        let scanner = Scanner::new("true * 1".to_owned());
-        let parser = Parser::new(scanner.scan_tokens().unwrap());
-        let mut interpreter = Interpreter::new();
-        let expr = parser.parse().unwrap();
-        assert_eq!(
-            Err(RloxError::MismatchedOperands(
-                TokenType::Star,
-                Object::Bool(true),
-                Object::Number(f64::from(1)),
-            )),
-            interpreter.evaluate(&expr)
-        );
-    }
-
-    #[test]
-    fn it_identifies_mismatched_operands_slash() {
-        let scanner = Scanner::new("1 / nil".to_owned());
-        let parser = Parser::new(scanner.scan_tokens().unwrap());
-        let mut interpreter = Interpreter::new();
-        let expr = parser.parse().unwrap();
-        assert_eq!(
-            Err(RloxError::MismatchedOperands(
-                TokenType::Slash,
-                Object::Number(f64::from(1)),
-                Object::Nil
-            )),
             interpreter.evaluate(&expr)
         );
     }

@@ -1,6 +1,7 @@
 use std::error;
 use std::hash::{Hash, Hasher};
 use std::num::ParseFloatError;
+use std::ops::{Add, Div, Mul, Sub};
 use std::result;
 
 mod display;
@@ -21,9 +22,19 @@ const INIT_METHOD: &str = "init";
 const MAX_PARAMS: usize = 255;
 
 #[derive(Debug, PartialEq)]
+pub enum ArithmeticOperation {
+    Addition,
+    Subtraction,
+    Multiplication,
+    Negate,
+    Division,
+}
+
+#[derive(Debug, PartialEq)]
 pub enum RloxError {
     // expected, actual
     ArgumentMismatch(usize, usize),
+    BadArithmeticOperation(ArithmeticOperation),
     ExpectedExpression(Token),
     ExpectedVarName(Token),
     FloatParseError(usize, ParseFloatError),
@@ -254,14 +265,72 @@ impl Object {
         }
     }
 
-    /// Destructures an `Object` into an `f64`
+    /// Destructures an `Object` into an `Some(f64)`
     ///
-    /// # Panics
-    /// Panics if `self` does not hold a `Number` variant.
-    pub fn into_number_unchecked(self) -> f64 {
+    /// Returns `Some(f64)` if `self` holds a `Number` variant. Returns
+    /// `None` otherwise.
+    pub fn into_number(self) -> Option<f64> {
         match self {
-            Self::Number(n) => n,
-            _ => panic!(),
+            Self::Number(n) => Some(n),
+            _ => None,
+        }
+    }
+}
+
+impl Add<Object> for Object {
+    type Output = Result<Object>;
+
+    fn add(self, other: Self) -> Self::Output {
+        match (self, other) {
+            (Object::Number(l), Object::Number(r)) => Ok(Object::Number(f64::from(l + r))),
+            (Object::String(ref l), Object::String(ref r)) => {
+                let mut buffer = String::with_capacity(l.capacity() + r.capacity());
+                buffer.push_str(l);
+                buffer.push_str(r);
+                Ok(Object::String(buffer))
+            }
+            _ => Err(RloxError::BadArithmeticOperation(
+                ArithmeticOperation::Addition,
+            )),
+        }
+    }
+}
+
+impl Mul<Object> for Object {
+    type Output = Result<Object>;
+
+    fn mul(self, other: Self) -> Self::Output {
+        match (self, other) {
+            (Object::Number(l), Object::Number(r)) => Ok(Object::Number(f64::from(l * r))),
+            _ => Err(RloxError::BadArithmeticOperation(
+                ArithmeticOperation::Multiplication,
+            )),
+        }
+    }
+}
+
+impl Div<Object> for Object {
+    type Output = Result<Object>;
+
+    fn div(self, other: Self) -> Self::Output {
+        match (self, other) {
+            (Object::Number(l), Object::Number(r)) => Ok(Object::Number(f64::from(l / r))),
+            _ => Err(RloxError::BadArithmeticOperation(
+                ArithmeticOperation::Division,
+            )),
+        }
+    }
+}
+
+impl Sub<Object> for Object {
+    type Output = Result<Object>;
+
+    fn sub(self, other: Self) -> Self::Output {
+        match (self, other) {
+            (Object::Number(l), Object::Number(r)) => Ok(Object::Number(f64::from(l - r))),
+            _ => Err(RloxError::BadArithmeticOperation(
+                ArithmeticOperation::Subtraction,
+            )),
         }
     }
 }

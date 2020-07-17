@@ -2,8 +2,8 @@ use std::fmt;
 use std::result;
 
 use super::{
-    LoxCallable, LoxClass, LoxFunction, LoxInstance, Object, RloxError, Token, TokenType,
-    MAX_PARAMS,
+    ArithmeticOperation, LoxCallable, LoxClass, LoxFunction, LoxInstance, Object, RloxError, Token,
+    TokenType, MAX_PARAMS,
 };
 
 impl fmt::Display for LoxFunction {
@@ -56,6 +56,16 @@ impl fmt::Display for RloxError {
                 "runtime error: Expected {} arguments but got {}.",
                 expected, actual
             ),
+            Self::BadArithmeticOperation(op) => match op {
+                ArithmeticOperation::Addition => write!(
+                    f,
+                    "runtime error: Operands must be two numbers or two strings."
+                ),
+                ArithmeticOperation::Negate => {
+                    write!(f, "runtime error: Operand must be a number.")
+                }
+                _ => write!(f, "runtime error: Operands must be numbers."),
+            },
             Self::ExpectedExpression(t) => write!(f, "Error at '{}': Expect expression.", t.lexeme),
             Self::ExpectedVarName(t) => write!(f, "Error at '{}': Expect variable name.", t.lexeme),
             Self::FloatParseError(line, e) => write!(f, "[line {}] {}", line, e),
@@ -64,9 +74,11 @@ impl fmt::Display for RloxError {
             }
             Self::InheritNonClass => write!(f, "runtime error: Superclass must be a class."),
             Self::InvalidAssignment => write!(f, "Error at '=': Invalid assignment target."),
-            Self::MismatchedOperands(op, left, right) => {
-                write!(f, "error: invalid expression: {} {} {}", left, op, right)
-            }
+            Self::MismatchedOperands(op, left, right) => write!(
+                f,
+                "runtime error: '{} {} {}': Operands must be two numbers or two strings.",
+                left, op, right
+            ),
             Self::MissingSemicolon(line) => write!(f, "error: {}: missing semicolon", line),
             Self::NotCallable => write!(f, "runtime error: Can only call functions and classes."),
             Self::PropertyAccessOnNonInstance => {
