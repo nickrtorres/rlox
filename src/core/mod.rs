@@ -604,6 +604,7 @@ pub struct LoxFunction {
     this: Option<LoxInstance>,
     superclass: Option<LoxClass>,
     initializer: bool,
+    environment: Option<usize>,
 }
 
 #[derive(Eq, Hash, Debug, PartialEq, Clone)]
@@ -651,6 +652,7 @@ mod tests {
                 this: None,
                 initializer: false,
                 superclass: None,
+                environment: None,
             };
 
             let mut class = LoxClass::new("foo".to_owned(), None);
@@ -730,6 +732,7 @@ mod tests {
                 this: None,
                 initializer: false,
                 superclass: None,
+                environment: None,
             };
             base.add_method(method.clone());
 
@@ -765,6 +768,7 @@ mod tests {
                 this: None,
                 initializer: false,
                 superclass: None,
+                environment: None,
             };
             base.add_method(method.clone());
 
@@ -803,6 +807,7 @@ mod tests {
                 this: None,
                 initializer: false,
                 superclass: None,
+                environment: None,
             };
             base.add_method(method.clone());
 
@@ -835,6 +840,7 @@ mod tests {
                 this: None,
                 initializer: false,
                 superclass,
+                environment: Some(0),
             }
         }
 

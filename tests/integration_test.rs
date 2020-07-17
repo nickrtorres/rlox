@@ -107,7 +107,14 @@ verify_rlox_program_err! {"class", "inherit_self"}
 verify_rlox_program_err! {"class", "local_inherit_self"}
 
 // Closure (ok)
+verify_rlox_program_ok! {"closure", "close_over_function_parameter"}
 verify_rlox_program_ok! {"closure", "close_over_later_variable"}
+verify_rlox_program_ok! {"closure", "closed_closure_in_function"}
+verify_rlox_program_ok! {"closure", "open_closure_in_function"}
+verify_rlox_program_ok! {"closure", "reference_closure_multiple_times"}
+verify_rlox_program_ok! {"closure", "shadow_closure_with_local"}
+verify_rlox_program_ok! {"closure", "unused_closure"}
+verify_rlox_program_ok! {"closure", "unused_later_closure"}
 
 // Comments (ok)
 verify_rlox_program_ok! {"comments", "line_at_eof"}

@@ -12,13 +12,14 @@ enum FunctionType {
 }
 
 // TODO: maybe None should be replaced with Option<ClassType>
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 enum ClassType {
     Class,
     SubClass,
     None,
 }
 
+#[derive(Debug)]
 pub struct Resolver {
     scopes: Stack<HashMap<String, bool>>,
     locals: HashMap<Expr, usize>,
@@ -207,7 +208,7 @@ impl Resolver {
     }
 
     fn resolve_local(&mut self, expr: &Expr, name: &Token) -> Result<()> {
-        for (i, scope) in self.scopes.iter().enumerate() {
+        for (i, scope) in self.scopes.iter().enumerate().rev() {
             if scope.contains_key(&name.lexeme) {
                 // Crafting Interpreters 11.3.3:
                 // > "If we find the variable, we tell the interpreter it has been
@@ -216,7 +217,12 @@ impl Resolver {
                 //   was found. So, if the variable was found in the current
                 //   scope, it passes in 0. If it’s in the immediately enclosing
                 //   scope, 1. You get the idea."
-                self.locals.insert(expr.clone(), self.scopes.len() - 1 - i);
+                //
+                // `Environment` is indexed from 0. Index 0 is *always* the
+                // global environment.  We need to offest the index by 1 since
+                // the resolver only resolves variables at block scope.
+                self.locals.insert(expr.clone(), i + 1);
+                break;
             }
         }
 

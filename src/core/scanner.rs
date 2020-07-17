@@ -81,7 +81,7 @@ impl Scanner {
             c => {
                 if Scanner::is_digit(Some(c)) {
                     self.number()?;
-                } else if c.is_alphabetic() {
+                } else if c.is_alphanumeric() {
                     self.identifier();
                 } else {
                     eprintln!("{}: unexpected token", self.line);
@@ -113,7 +113,8 @@ impl Scanner {
 
     /// Adapter for Option<char>
     fn is_alphanumeric(c: Option<char>) -> bool {
-        c.map_or(false, |c| c.is_ascii_alphanumeric())
+        // TODO clean this up
+        c.map_or(false, |c| c.is_ascii_alphanumeric() || c == '_')
     }
 
     /// Adapter for Option<char>

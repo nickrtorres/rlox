@@ -22,7 +22,7 @@ impl Interpreter {
         Interpreter {
             environment: vec![("clock".to_owned(), Object::Callable(LoxCallable::Clock))]
                 .into_iter()
-                .collect(),
+                .collect::<Environment>(),
             locals: HashMap::new(),
         }
     }
@@ -115,10 +115,10 @@ impl Interpreter {
                 }
             }
             Stmt::Function(f) => {
-                let name = &f.name.lexeme;
-
+                let mut f = f.clone();
+                f.environment = self.environment.close_over();
                 self.environment.define(
-                    name.to_owned(),
+                    f.name.lexeme.to_owned(),
                     Object::Callable(LoxCallable::UserDefined(f.clone())),
                 );
             }
@@ -309,6 +309,9 @@ impl Interpreter {
                             );
                         }
 
+                        if let Some(index) = f.environment {
+                            self.environment.restore_closure(index);
+                        }
                         self.environment.raise();
 
                         // TODO: don't clone
@@ -316,16 +319,18 @@ impl Interpreter {
                             self.environment.define(param.lexeme.clone(), arg.clone())
                         }
 
-                        if let Err(e) = self.execute_block(&f.body, caller_name) {
+                        let r = self.execute_block(&f.body, caller_name);
+                        self.environment.restore_environment();
+                        if let Err(e) = r {
                             match e {
                                 RloxError::Return(v) => {
                                     if f.initializer {
-                                        self.environment.get(THIS)
+                                        return self.environment.get(THIS);
                                     } else {
-                                        Ok(v)
+                                        return Ok(v);
                                     }
                                 }
-                                _ => Err(e),
+                                _ => return Err(e),
                             }
                         } else if f.initializer {
                             self.environment.get(THIS)
@@ -423,10 +428,11 @@ impl Interpreter {
     }
 
     fn look_up_variable(&mut self, name: &str, expr: &Expr) -> Result<Object> {
-        self.locals.get(expr).map_or_else(
-            || self.environment.get(name),
-            |distance| self.environment.get_at(*distance, name),
-        )
+        if let Some(distance) = self.locals.get(expr) {
+            self.environment.get_at(*distance, name)
+        } else {
+            self.environment.get(name)
+        }
     }
 
     pub fn resolve(&mut self, map: HashMap<Expr, usize>) {

@@ -180,6 +180,7 @@ impl Parser {
             this: None,
             superclass: None,
             initializer: false,
+            environment: None,
         }))
     }
 
