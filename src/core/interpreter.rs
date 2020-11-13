@@ -427,12 +427,11 @@ impl Interpreter {
         }
     }
 
-    fn look_up_variable(&mut self, name: &str, expr: &Expr) -> Result<Object> {
-        if let Some(distance) = self.locals.get(expr) {
-            self.environment.get_at(*distance, name)
-        } else {
-            self.environment.get(name)
-        }
+    fn look_up_variable(&mut self, name: &str, _expr: &Expr) -> Result<Object> {
+        // FIXME: There's a discrepancy between the implementation of resolving
+        // and storing variables in the environment at runtime. This is a hack to
+        // just step through the static scopes until you find `name`.
+        self.environment.get(name)
     }
 
     pub fn resolve(&mut self, map: HashMap<Expr, usize>) {
