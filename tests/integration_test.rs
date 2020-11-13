@@ -248,15 +248,17 @@ verify_rlox_program_err! {"operator", "add_bool_string"}
 verify_rlox_program_err! {"operator", "add_nil_nil"}
 verify_rlox_program_err! {"operator", "add_num_nil"}
 verify_rlox_program_err! {"operator", "add_string_nil"}
-verify_rlox_program_err! {"operator", "divide_num_nonnum"}
 verify_rlox_program_err! {"operator", "divide_nonnum_num"}
+verify_rlox_program_err! {"operator", "divide_num_nonnum"}
+verify_rlox_program_err! {"operator", "greater_nonnum_num"}
 verify_rlox_program_err! {"operator", "greater_num_nonnum"}
+verify_rlox_program_err! {"operator", "less_nonnum_num"}
 verify_rlox_program_err! {"operator", "less_num_nonnum"}
-verify_rlox_program_err! {"operator", "multiply_num_nonnum"}
 verify_rlox_program_err! {"operator", "multiply_nonnum_num"}
+verify_rlox_program_err! {"operator", "multiply_num_nonnum"}
 verify_rlox_program_err! {"operator", "negate_nonnum"}
-verify_rlox_program_err! {"operator", "subtract_num_nonnum"}
 verify_rlox_program_err! {"operator", "subtract_nonnum_num"}
+verify_rlox_program_err! {"operator", "subtract_num_nonnum"}
 
 // Print (err)
 verify_rlox_program_err! {"print", "missing_argument"}
