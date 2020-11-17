@@ -2,8 +2,6 @@ use super::{Expr, LoxFunction, Result, RloxError, Stmt, Token, INIT_METHOD};
 
 use std::collections::HashMap;
 
-type Stack<T> = Vec<T>;
-
 #[derive(Debug, Clone, Copy)]
 enum FunctionType {
     Function,
@@ -21,7 +19,7 @@ enum ClassType {
 
 #[derive(Debug)]
 pub struct Resolver {
-    scopes: Stack<HashMap<String, bool>>,
+    scopes: Vec<HashMap<String, bool>>,
     locals: HashMap<Expr, usize>,
     current_function: Option<FunctionType>,
     current_class: ClassType,
@@ -31,7 +29,7 @@ impl Resolver {
     #[must_use]
     pub fn new() -> Self {
         Resolver {
-            scopes: Stack::new(),
+            scopes: Vec::new(),
             locals: HashMap::new(),
             current_function: None,
             current_class: ClassType::None,

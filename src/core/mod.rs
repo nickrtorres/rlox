@@ -282,6 +282,7 @@ impl Add<Object> for Object {
 
     fn add(self, other: Self) -> Self::Output {
         match (self, other) {
+            (Object::Time(l), Object::Time(r)) => Ok(Object::Time(l - r)),
             (Object::Number(l), Object::Number(r)) => Ok(Object::Number(f64::from(l + r))),
             (Object::String(ref l), Object::String(ref r)) => {
                 let mut buffer = String::with_capacity(l.capacity() + r.capacity());
@@ -327,6 +328,7 @@ impl Sub<Object> for Object {
 
     fn sub(self, other: Self) -> Self::Output {
         match (self, other) {
+            (Object::Time(l), Object::Time(r)) => Ok(Object::Time(l - r)),
             (Object::Number(l), Object::Number(r)) => Ok(Object::Number(f64::from(l - r))),
             _ => Err(RloxError::BadArithmeticOperation(
                 ArithmeticOperation::Subtraction,

@@ -34,6 +34,7 @@ impl Environment {
     /// SAFETY: Getting values at index 0 is *always* safe since creating
     /// and environment object *always* creates a vector with one element.
     pub fn globals<'a>(&'a mut self) -> &'a HashMap<String, Object> {
+        assert!(self.values.len() > 1);
         unsafe { self.values.get_unchecked(0) }
     }
 
@@ -41,12 +42,12 @@ impl Environment {
     pub fn define(&mut self, name: String, value: Object) {
         let values = match self.state {
             State::Normal => &mut self.values,
-            // TODO handle errors
             State::Closure(index) => self.closures.get_mut(index).unwrap(),
         };
 
         // SAFETY: Since there will always be at least one element in the values vector, unwrapping
         // the last element is safe.
+        assert!(values.len() >= 1);
         values.last_mut().unwrap().insert(name, value);
     }
 
@@ -59,7 +60,6 @@ impl Environment {
     pub fn get(&self, name: &str) -> Result<Object> {
         let values = match self.state {
             State::Normal => &self.values,
-            // TODO handle errors
             State::Closure(index) => self.closures.get(index).unwrap(),
         };
 
@@ -76,7 +76,6 @@ impl Environment {
     pub fn assign(&mut self, name: &str, value: Object) -> Result<Object> {
         let values = match self.state {
             State::Normal => &mut self.values,
-            // TODO handle errors
             State::Closure(index) => self.closures.get_mut(index).unwrap(),
         };
 
@@ -92,43 +91,6 @@ impl Environment {
 
     /// Raises an environment up a single level
     ///
-    /// Given an arbitrary environment (`e`)
-    /// ```notrust
-    ///     +---------------+
-    ///     | e             |
-    ///     | =             |
-    ///     | values: {     |
-    ///     |   // ...      |
-    ///     |   // ...      |
-    ///     |   // ...      |
-    ///     | }             |
-    ///     |               |
-    ///     | enclosing: ---+------> // ...
-    ///     +---------------+       
-    /// ```
-    ///
-    /// A call of `e.raise()` will raise the environment a single level:
-    /// ```notrust
-    ///
-    ///     +-------------------------+
-    ///     | ** New Environment **   |
-    ///     | =====================   |
-    ///     | values: HashMap::new(), |
-    ///     | enclosing: -------------+----->+---------------+
-    ///     +-------------------------+      | e             |
-    ///                                      | =             |               
-    ///                                      | values: {     |               
-    ///                                      |   // ...      |               
-    ///                                      |   // ...      |               
-    ///                                      |   // ...      |               
-    ///                                      | }             |               
-    ///                                      |               |               
-    ///                                      | enclosing: ---+------> // ...
-    ///                                      +---------------+               
-    ///                       
-    ///                       
-    /// ```
-    ///
     /// # Note
     /// This is the inverse of `Environment::lower`.
     pub fn raise(&mut self) {
@@ -142,45 +104,6 @@ impl Environment {
     }
 
     /// Collapses the environment 1 level.
-    ///
-    /// Given an arbitrary environment (`e`) with a valindex enclosing (`c`) environment:
-    /// ```notrust
-    ///     +---------------+
-    ///     | e             |
-    ///     | =             |
-    ///     | values: {     |
-    ///     |   // ...      |
-    ///     |   // ...      |
-    ///     |   // ...      |
-    ///     | }             |
-    ///     |               |
-    ///     | enclosing: ---+------>+---------------+
-    ///     +---------------+       | c             |
-    ///                             | =             |
-    ///                             | values: {     |
-    ///                             |   // ...      |
-    ///                             |   // ...      |
-    ///                             |   // ...      |
-    ///                             | }             |
-    ///                             |               |
-    ///                             | enclosing: ---+------> // ...
-    ///                             +---------------+
-    /// ```
-    ///
-    /// A call of `e.lower()` will collapse the environment:
-    /// ```notrust
-    ///     +---------------+
-    ///     | c             |
-    ///     | =             |
-    ///     | values: {     |
-    ///     |   // ...      |
-    ///     |   // ...      |
-    ///     |   // ...      |
-    ///     | }             |
-    ///     |               |
-    ///     | enclosing: ---+------> // ...
-    ///     +---------------+       
-    /// ```
     ///
     /// # Panics
     /// `lower` is infallible. It is the responsibility of the programmer to
@@ -209,12 +132,10 @@ impl Environment {
     pub fn get_at(&self, distance: usize, name: &str) -> Result<Object> {
         let values = match self.state {
             State::Normal => &self.values,
-            // TODO handle errors
             State::Closure(index) => self.closures.get(index).unwrap(),
         };
 
         assert!(distance < values.len());
-
         match values.get(distance).unwrap().get(name) {
             Some(obj) => return Ok(obj.clone()),
             None => {
