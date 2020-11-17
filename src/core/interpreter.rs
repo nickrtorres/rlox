@@ -204,13 +204,11 @@ impl Interpreter {
                             ArithmeticOperation::Negate,
                         )),
                     },
-                    TokenType::Bang => {
-                        if let Object::Bool(b) = right {
-                            Ok(Object::Bool(!b))
-                        } else {
-                            Ok(Object::Bool(!false))
-                        }
-                    }
+                    TokenType::Bang => match right {
+                        Object::Bool(b) => Ok(Object::Bool(!b)),
+                        // !false
+                        _ => Ok(Object::Bool(true)),
+                    },
                     _ => unreachable!(),
                 }
             }
@@ -261,26 +259,23 @@ impl Interpreter {
                     None
                 };
 
-                let function = self.evaluate(callee).and_then(|fun| match fun {
+                let function = match self.evaluate(callee)? {
                     Object::Callable(c) => match c {
                         LoxCallable::Clock
                         | LoxCallable::UserDefined(_)
                         | LoxCallable::ClassDefinition(_) => Ok(c),
-                        _ => Err(RloxError::NotCallable),
+                        LoxCallable::ClassInstance(_) => Err(RloxError::NotCallable),
                     },
                     _ => Err(RloxError::NotCallable),
-                })?;
+                }?;
+
+                if args.len() != function.arity() {
+                    return Err(RloxError::ArgumentMismatch(function.arity(), args.len()));
+                }
 
                 let mut arguments = Vec::with_capacity(args.len());
                 for arg in args {
                     arguments.push(self.evaluate(arg)?);
-                }
-
-                if arguments.len() != function.arity() {
-                    return Err(RloxError::ArgumentMismatch(
-                        function.arity(),
-                        arguments.len(),
-                    ));
                 }
 
                 match function {
@@ -290,8 +285,6 @@ impl Interpreter {
                         .map_err(|_| unimplemented!())
                         .map(|t| Object::Time(t.as_millis())),
                     LoxCallable::UserDefined(f) => {
-                        assert_eq!(f.parameters.len(), arguments.len());
-
                         // The 'this' pointer needs to be defined in our parent environment.
                         if let Some(instance) = f.this {
                             self.environment.define(
@@ -310,6 +303,7 @@ impl Interpreter {
                         if let Some(index) = f.environment {
                             self.environment.restore_closure(index);
                         }
+
                         self.environment.raise();
 
                         // TODO: don't clone
@@ -384,7 +378,7 @@ impl Interpreter {
                         Object::Callable(LoxCallable::ClassInstance(instance.clone())),
                     )?;
 
-                    // We just added this value. It must be `Ok`
+                    // We just added this value. It must be `Ok`!
                     Ok(instance.get(&name.lexeme).unwrap())
                 } else {
                     Err(RloxError::PropertyAccessOnNonInstance)
