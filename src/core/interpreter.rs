@@ -35,6 +35,20 @@ impl Interpreter {
         Ok(())
     }
 
+    fn validate_superclass(&mut self, superclass: &Option<Expr>) -> Result<Option<Box<LoxClass>>> {
+        match superclass {
+            Some(ref s) => {
+                let klass = self.evaluate(s)?;
+                if let Some(d) = klass.into_callable().and_then(LoxCallable::into_definition) {
+                    return Ok(Some(Box::new(d)));
+                } else {
+                    return Err(RloxError::InheritNonClass);
+                }
+            }
+            None => Ok(None),
+        }
+    }
+
     fn execute(&mut self, statement: &Stmt) -> Result<()> {
         match statement {
             Stmt::Block(statements) => {
@@ -51,20 +65,7 @@ impl Interpreter {
                 }
             }
             Stmt::Class(name, superclass, methods) => {
-                let superclass: Option<Box<LoxClass>> = if let Some(s) = superclass {
-                    if let Some(s) = self
-                        .evaluate(s)?
-                        .into_callable()
-                        .and_then(LoxCallable::into_definition)
-                    {
-                        Some(Box::new(s))
-                    } else {
-                        return Err(RloxError::InheritNonClass);
-                    }
-                } else {
-                    None
-                };
-
+                let superclass = self.validate_superclass(superclass)?;
                 let mut klass = LoxClass::new(name.lexeme.clone(), superclass);
 
                 for method in methods {
