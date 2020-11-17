@@ -198,15 +198,12 @@ impl Interpreter {
             Expr::Unary(token, expr) => {
                 let right = self.evaluate(expr)?;
                 match token.token_type {
-                    TokenType::Minus => {
-                        let right =
-                            right
-                                .into_number()
-                                .ok_or(RloxError::BadArithmeticOperation(
-                                    ArithmeticOperation::Negate,
-                                ))?;
-                        Ok(Object::Number(-right))
-                    }
+                    TokenType::Minus => match right.into_number() {
+                        Some(r) => Ok(Object::Number(-r)),
+                        None => Err(RloxError::BadArithmeticOperation(
+                            ArithmeticOperation::Negate,
+                        )),
+                    },
                     TokenType::Bang => {
                         if let Object::Bool(b) = right {
                             Ok(Object::Bool(!b))
